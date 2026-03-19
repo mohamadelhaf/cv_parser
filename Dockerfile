@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all source files
-COPY extractor.py parser.py parser_v2.py adapter.py generator_v2.py main.py app.py ./
+COPY extractor.py parser.py parser_v2.py adapter.py generator.py main.py app.py ./
 
 # Streamlit config: disable telemetry, set port
 ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
