@@ -1,22 +1,8 @@
-"""
-Step 2: CV Parser (rule-based)
-Detects sections in raw CV text, then parses each into structured data.
-
-Usage:
-    from parser import parse_cv
-    cv = parse_cv(raw_text)
-    print(cv.name, cv.education, cv.experiences, ...)
-"""
-
 import re
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
 
-
-# ===========================================================================
-# Data structures
-# ===========================================================================
 
 @dataclass
 class Education:
@@ -54,10 +40,6 @@ class CVData:
     languages: dict[str, str] = field(default_factory=dict)   # {"Français": "Courant", ...}
 
 
-# ===========================================================================
-# Part A: Section detection
-# ===========================================================================
-
 # Each pattern matches common French & English section headers
 SECTION_HEADERS = {
     "profil": re.compile(
@@ -92,15 +74,10 @@ SECTION_HEADERS = {
 
 
 def _clean(line: str) -> str:
-    """Strip whitespace and normalize spaces."""
     return re.sub(r"\s+", " ", line.strip())
 
 
 def _detect_section(line: str) -> Optional[str]:
-    """
-    Check if a line is a section header.
-    Returns the section key (e.g. "formation") or None.
-    """
     cleaned = _clean(line)
     if not cleaned:
         return None
@@ -114,23 +91,6 @@ def _detect_section(line: str) -> Optional[str]:
 
 
 def split_into_sections(text: str) -> dict[str, list[str]]:
-    """
-    Split raw CV text into named sections.
-    
-    Handles duplicate section names (e.g. two "Formation" sections,
-    two "Projets" sections) by numbering them: formation, formation_2, etc.
-    
-    Returns a dict like:
-        {
-            "_header": [...],
-            "formation": [...],        # first Formation = education
-            "formation_2": [...],       # second FORMATIONS = training entries
-            "experiences": [...],
-            "projets": [...],
-            "projets_2": [...],
-            ...
-        }
-    """
     lines = text.split("\n")
     sections: dict[str, list[str]] = {}
     
@@ -160,10 +120,6 @@ def split_into_sections(text: str) -> dict[str, list[str]]:
 
     return sections
 
-
-# ===========================================================================
-# Part B: Section parsers
-# ===========================================================================
 
 # --- Helper patterns ---
 
@@ -263,7 +219,6 @@ def _strip_bullet(line: str) -> str:
 
 
 def _is_page_marker(line: str) -> bool:
-    """Detect page markers, PDF headers/footers, and repeated name lines."""
     cleaned = _clean(line)
     # Page numbers: "1/2", "2/2", "Page 3"
     if re.match(r"^\d+/\d+$", cleaned) or re.match(r"(?i)^page\s+\d+", cleaned):
@@ -280,10 +235,6 @@ def _is_page_marker(line: str) -> bool:
 # --- B1: Header parser ---
 
 def parse_header(lines: list[str]) -> dict:
-    """
-    Extract name, headline from lines before the first section.
-    Skips contact info (email, phone, linkedin, github).
-    """
     result = {"name": "", "headline": "", "contacts": []}
     
     contact_pattern = re.compile(
@@ -308,11 +259,6 @@ def parse_header(lines: list[str]) -> dict:
 # --- B2: Formation parser ---
 
 def parse_formation(lines: list[str]) -> list[Education]:
-    """
-    Parse education entries.
-    Handles multiple date formats and bullet-prefixed entries.
-    Falls back to treating unrecognized lines as simple entries.
-    """
     education = []
     undated_lines = []
     
@@ -410,24 +356,6 @@ def parse_formation(lines: list[str]) -> list[Education]:
 # --- B3: Experience parser ---
 
 def parse_experiences(lines: list[str]) -> list[Experience]:
-    """
-    Parse professional experience entries.
-    
-    Handles TWO formats:
-    
-    A) Regular CV (date-based):
-        "Sep. 2024 – Sep. 2025 Alternant Data Engineer, Company"
-        "— bullet task"
-        "Stack : tech1, tech2"
-    
-    B) INTM template (Entreprise/Poste/ROLE):
-        "Entreprise Group Vital Durée 6 mois"
-        "Poste Data Engineer"
-        "ROLE :"
-        "task item (no bullet prefix)"
-        "Environnement technique :"
-        "stack item"
-    """
     experiences = []
     current: Optional[Experience] = None
     mode = "tasks"  # tasks | stack
@@ -608,9 +536,6 @@ def parse_experiences(lines: list[str]) -> list[Experience]:
 # --- B4: Projects parser ---
 
 def parse_projects(lines: list[str]) -> list[Experience]:
-    """
-    Parse project entries. Year at start, then bullet items.
-    """
     projects = []
     current: Optional[Experience] = None
     
@@ -657,14 +582,6 @@ def parse_projects(lines: list[str]) -> list[Experience]:
 # --- B5: Technical skills parser ---
 
 def parse_tech_skills(lines: list[str]) -> list[TechSkill]:
-    """
-    Parse technical skills: "Category  Details" (tab, colon, multi-space,
-    or known-keyword separated).
-    
-    Handles PDF output where category and details are single-space separated:
-        "Langages Python, Java, C++, Kotlin"
-    by detecting known category keywords at the start of the line.
-    """
     skills = []
     
     # Known category keywords (French + English, case-insensitive)
@@ -750,9 +667,6 @@ def parse_tech_skills(lines: list[str]) -> list[TechSkill]:
 # --- B6: Languages parser ---
 
 def parse_languages(lines: list[str]) -> dict[str, str]:
-    """
-    Parse language entries into {"Français": "Courant", "Anglais": "C1 (TOEIC 925)"}.
-    """
     languages = {}
     
     for line in lines:
@@ -787,19 +701,7 @@ def parse_languages(lines: list[str]) -> dict[str, str]:
     return languages
 
 
-# ===========================================================================
-# Part C: Main parser
-# ===========================================================================
-
 def _parse_intm_blocks(lines: list[str]) -> list[Experience]:
-    """
-    Parse INTM-format blocks that use ROLE:/Environnement technique: structure.
-    Used for duplicate formation/projets sections (formation_2, projets_2, etc.)
-    which are actually training or project entries, not education.
-    
-    Each block starts with a title line (project name, training name, etc.)
-    followed by ROLE:/Environnement technique: sections.
-    """
     experiences = []
     current: Optional[Experience] = None
     mode = "scan"
@@ -867,13 +769,6 @@ def _parse_intm_blocks(lines: list[str]) -> list[Experience]:
 
 
 def parse_cv(text: str) -> CVData:
-    """
-    Parse raw CV text into structured CVData.
-    
-    Handles both regular CVs and INTM-formatted templates.
-    Duplicate sections (formation_2, projets_2, etc.) are parsed
-    as additional experience/project entries.
-    """
     cv = CVData()
     
     # Split into sections
@@ -935,11 +830,6 @@ def parse_cv(text: str) -> CVData:
 
 
 def get_savoir_faire(text: str) -> list[str]:
-    """
-    Extract savoir-faire items from CV text.
-    Returns a list of skill strings, or empty list if not found.
-    Useful for the INTM template which has a separate Savoir Faire section.
-    """
     sections = split_into_sections(text)
     if "savoir_faire" not in sections:
         return []
@@ -953,12 +843,7 @@ def get_savoir_faire(text: str) -> list[str]:
     return items
 
 
-# ===========================================================================
-# CLI: pretty-print parsed CV
-# ===========================================================================
-
 def print_cv(cv: CVData):
-    """Pretty-print parsed CV data for debugging."""
     print(f"\n{'='*60}")
     print(f"  Name:       {cv.name}")
     print(f"  Headline:   {cv.headline}")
