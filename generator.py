@@ -261,7 +261,6 @@ def _render_bullet(doc, text):
 
 
 def _render_bullets(doc, items: list[str]):
-    """Render a bullet list."""
     for item in items:
         if item:  # skip empty items
             _render_bullet(doc, item)

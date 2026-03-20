@@ -63,7 +63,7 @@ SECTION_HEADERS = {
         re.IGNORECASE,
     ),
     "competences": re.compile(
-        r"^(?:comp[ée]tences?\s+techniques?|technical\s+skills?|comp[ée]tences?|skills?|outils?\s+(?:et\s+)?technologies?)$",
+        r"^(?:comp[ée]tences?\s+techniques?|comp[ée]tences?\s+fonctionnelles?|technical\s+skills?|comp[ée]tences?|skills?|outils?\s+(?:et\s+)?technologies?)$",
         re.IGNORECASE,
     ),
     "langues": re.compile(
@@ -74,7 +74,6 @@ SECTION_HEADERS = {
 
 
 def _clean(line: str) -> str:
-    """Strip whitespace and normalize spaces."""
     return re.sub(r"\s+", " ", line.strip())
 
 
@@ -162,6 +161,19 @@ DATE_END_PATTERN = re.compile(
 # Matches a single year at start: "2025 Projet..." or "2025Projet..." (PDF glue)
 YEAR_PATTERN = re.compile(r"^(\d{4})\s*(\S.+)")
 
+# Matches "COMPANY DE MONTH YEAR A MONTH YEAR" format
+# e.g. "BNP PARIBAS DE NOVEMBRE 2024 A JANVIER 2026"
+_FULL_MONTHS = (
+    r"(?:JANVIER|FEVRIER|FÉVRIER|MARS|AVRIL|MAI|JUIN|JUILLET|AOUT|AOÛT"
+    r"|SEPTEMBRE|OCTOBRE|NOVEMBRE|DECEMBRE|DÉCEMBRE"
+    r"|Janvier|Fevrier|Février|Mars|Avril|Mai|Juin|Juillet|Aout|Août"
+    r"|Septembre|Octobre|Novembre|Decembre|Décembre)"
+)
+DE_A_DATE_PATTERN = re.compile(
+    rf"^(.+?)\s+DE\s+({_FULL_MONTHS})\s+(\d{{4}})\s+A\s+({_FULL_MONTHS})\s*(\d{{4}})\s*$",
+    re.IGNORECASE,
+)
+
 # Matches bullet prefixes
 BULLET_PATTERN = re.compile(r"^\s*[—\-•■▪▸◆➤●★>»→]\s*")
 
@@ -207,11 +219,17 @@ def _strip_bullet(line: str) -> str:
 
 
 def _is_page_marker(line: str) -> bool:
-    """Detect page markers like '1/2', '2/2'."""
     cleaned = _clean(line)
-    return bool(re.match(r"^\d+/\d+$", cleaned)) or bool(
-        re.match(r"(?i)^page\s+\d+", cleaned)
-    )
+    # Page numbers: "1/2", "2/2", "Page 3"
+    if re.match(r"^\d+/\d+$", cleaned) or re.match(r"(?i)^page\s+\d+", cleaned):
+        return True
+    # Common PDF header/footer: address lines
+    if re.match(r"^\d+\s+rue\s+", cleaned, re.IGNORECASE):
+        return True
+    # Phone header/footer
+    if re.match(r"^T[ée]l\.?\s*:?\s*\+?\d", cleaned, re.IGNORECASE):
+        return True
+    return False
 
 
 # --- B1: Header parser ---
@@ -345,6 +363,33 @@ def parse_experiences(lines: list[str]) -> list[Experience]:
             current = Experience(dates=dates, title=title, company=company)
             mode = "tasks"
             i += 1
+            continue
+        
+        # --- Format D: "COMPANY DE MONTH YEAR A MONTH YEAR" ---
+        de_a_match = DE_A_DATE_PATTERN.match(cleaned)
+        if de_a_match:
+            if current:
+                experiences.append(current)
+            company = de_a_match.group(1).strip()
+            dates = f"{de_a_match.group(2)} {de_a_match.group(3)} – {de_a_match.group(4)} {de_a_match.group(5)}"
+            # Next line is usually the job title
+            title = ""
+            j = i + 1
+            while j < len(lines):
+                next_cleaned = _clean(lines[j])
+                if next_cleaned and not _is_page_marker(next_cleaned):
+                    # Check if it's not a bullet — it's the title
+                    if not BULLET_PATTERN.match(next_cleaned) and not next_cleaned.startswith("CONTEXTE") and not next_cleaned.startswith("ACTIVITES"):
+                        title = next_cleaned
+                        i = j + 1
+                    else:
+                        i = j
+                    break
+                j += 1
+            else:
+                i += 1
+            current = Experience(dates=dates, title=title, company=company)
+            mode = "tasks"
             continue
         
         # --- Format A: PARTIAL date (split across lines) ---
@@ -617,7 +662,6 @@ def parse_languages(lines: list[str]) -> dict[str, str]:
     
     return languages
 
-
 def _parse_intm_blocks(lines: list[str]) -> list[Experience]:
     experiences = []
     current: Optional[Experience] = None
@@ -758,7 +802,6 @@ def get_savoir_faire(text: str) -> list[str]:
                 cleaned = _strip_bullet(cleaned)
             items.append(cleaned)
     return items
-
 
 def print_cv(cv: CVData):
     print(f"\n{'='*60}")
