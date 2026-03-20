@@ -74,6 +74,7 @@ SECTION_HEADERS = {
 
 
 def _clean(line: str) -> str:
+    """Strip whitespace and normalize spaces."""
     return re.sub(r"\s+", " ", line.strip())
 
 
@@ -124,32 +125,41 @@ def split_into_sections(text: str) -> dict[str, list[str]]:
 # --- Helper patterns ---
 
 # Month abbreviations (French + common short forms)
-# Handles: Jan, Janv, Janvier, Fév, Fev, Février, Jul, Juil, Juillet, etc.
 _MONTHS = (
     r"(?:Jan|Fev|F[ée]v|Mar|Avr|Mai|Juin|Jul|Juil|Aou|Ao[uû]t|Sep|Oct|Nov|Dec|D[ée]c)"
     r"\w*\.?"
 )
 
-# Matches FULL date ranges on one line: "2023–2025", "Sep. 2024 – Sep. 2025"
+# Date piece: "Sep. 2024", "2024", "01/2025", "09/2022"
+_DATE_PIECE = rf"(?:{_MONTHS}\s*)?\d{{4}}|\d{{2}}/\d{{4}}"
+# End date can also be "Present" or "Présent"
+_DATE_END_PIECE = rf"{_DATE_PIECE}|[Pp]r[ée]sent"
+
+# Matches FULL date ranges on one line: "2023–2025", "Sep. 2024 – Sep. 2025", "01/2024 – 12/2024", "01/2025 – Present"
 DATE_RANGE_PATTERN = re.compile(
-    rf"^((?:{_MONTHS}\s*)?\d{{4}}\s*[-–—]\s*(?:{_MONTHS}\s*)?\d{{4}})",
+    rf"^((?:{_DATE_PIECE})\s*[-–—]\s*(?:{_DATE_END_PIECE}))",
+    re.IGNORECASE,
+)
+
+# Matches date range at END of a line: "some text 01/2024 – 12/2024"
+DATE_RANGE_END_PATTERN = re.compile(
+    rf"^(.+?)\s+((?:{_DATE_PIECE})\s*[-–—]\s*(?:{_DATE_END_PIECE}))\s*$",
     re.IGNORECASE,
 )
 
 # Matches PARTIAL date: "Sep. 2024 –" (start date + dash, end date on next line)
 PARTIAL_DATE_PATTERN = re.compile(
-    rf"^((?:{_MONTHS}\s*)?\d{{4}})\s*[-–—]\s*$",
+    rf"^((?:{_DATE_PIECE}))\s*[-–—]\s*$",
     re.IGNORECASE,
 )
 
 # Matches END of a split date: "Sep. 2025" or just "2025" (alone on a line)
 DATE_END_PATTERN = re.compile(
-    rf"^((?:{_MONTHS}\s*)?\d{{4}})\s*$",
+    rf"^((?:{_DATE_PIECE}))\s*$",
     re.IGNORECASE,
 )
 
 # Matches a single year at start: "2025 Projet..." or "2025Projet..." (PDF glue)
-# \s* instead of \s+ to handle pypdf gluing year to text
 YEAR_PATTERN = re.compile(r"^(\d{4})\s*(\S.+)")
 
 # Matches bullet prefixes
@@ -253,6 +263,17 @@ def parse_formation(lines: list[str]) -> list[Education]:
             education.append(Education(years=years, degree=degree, institution=institution))
             continue
         
+        # Pattern 1b: Date range at END of line: "Degree, Institution 09/2022 – 07/2024"
+        end_date_match = DATE_RANGE_END_PATTERN.match(cleaned)
+        if end_date_match:
+            text_part = end_date_match.group(1).strip()
+            years = end_date_match.group(2).strip()
+            parts = re.split(r",\s+|\s+[—–]\s+", text_part, maxsplit=1)
+            degree = parts[0].strip()
+            institution = parts[1].strip() if len(parts) > 1 else ""
+            education.append(Education(years=years, degree=degree, institution=institution))
+            continue
+        
         # Pattern 2: Tab-separated (from DOCX tables)
         if "\t" in line:
             parts = line.split("\t", 1)
@@ -302,6 +323,23 @@ def parse_experiences(lines: list[str]) -> list[Experience]:
             title, company = "", ""
             if rest:
                 parts = rest.split(",", 1)
+                title = parts[0].strip()
+                company = parts[1].strip() if len(parts) > 1 else ""
+            current = Experience(dates=dates, title=title, company=company)
+            mode = "tasks"
+            i += 1
+            continue
+        
+        # --- Format C: date range at END of line: "Title 01/2024 – 12/2024" ---
+        end_date_match = DATE_RANGE_END_PATTERN.match(cleaned)
+        if end_date_match:
+            if current:
+                experiences.append(current)
+            text_part = end_date_match.group(1).strip()
+            dates = end_date_match.group(2).strip()
+            title, company = "", ""
+            if text_part:
+                parts = text_part.split(",", 1)
                 title = parts[0].strip()
                 company = parts[1].strip() if len(parts) > 1 else ""
             current = Experience(dates=dates, title=title, company=company)
