@@ -1,8 +1,22 @@
+"""
+Step 2: CV Parser (rule-based)
+Detects sections in raw CV text, then parses each into structured data.
+
+Usage:
+    from parser import parse_cv
+    cv = parse_cv(raw_text)
+    print(cv.name, cv.education, cv.experiences, ...)
+"""
+
 import re
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
 
+
+# ===========================================================================
+# Data structures
+# ===========================================================================
 
 @dataclass
 class Education:
@@ -40,6 +54,10 @@ class CVData:
     languages: dict[str, str] = field(default_factory=dict)   # {"Français": "Courant", ...}
 
 
+# ===========================================================================
+# Part A: Section detection
+# ===========================================================================
+
 # Each pattern matches common French & English section headers
 SECTION_HEADERS = {
     "profil": re.compile(
@@ -47,7 +65,7 @@ SECTION_HEADERS = {
         re.IGNORECASE,
     ),
     "formation": re.compile(
-        r"^(?:formation|formations|education|études|etudes|diplômes|diplomes|parcours\s+acad[ée]mique)$",
+        r"^(?:formation|formations|education|études|etudes|diplômes|diplomes|parcours\s+acad[ée]mique)(?:\s+[&et]+\s+certifications?)?$",
         re.IGNORECASE,
     ),
     "experiences": re.compile(
@@ -74,10 +92,15 @@ SECTION_HEADERS = {
 
 
 def _clean(line: str) -> str:
+    """Strip whitespace and normalize spaces."""
     return re.sub(r"\s+", " ", line.strip())
 
 
 def _detect_section(line: str) -> Optional[str]:
+    """
+    Check if a line is a section header.
+    Returns the section key (e.g. "formation") or None.
+    """
     cleaned = _clean(line)
     if not cleaned:
         return None
@@ -91,6 +114,23 @@ def _detect_section(line: str) -> Optional[str]:
 
 
 def split_into_sections(text: str) -> dict[str, list[str]]:
+    """
+    Split raw CV text into named sections.
+    
+    Handles duplicate section names (e.g. two "Formation" sections,
+    two "Projets" sections) by numbering them: formation, formation_2, etc.
+    
+    Returns a dict like:
+        {
+            "_header": [...],
+            "formation": [...],        # first Formation = education
+            "formation_2": [...],       # second FORMATIONS = training entries
+            "experiences": [...],
+            "projets": [...],
+            "projets_2": [...],
+            ...
+        }
+    """
     lines = text.split("\n")
     sections: dict[str, list[str]] = {}
     
@@ -120,6 +160,10 @@ def split_into_sections(text: str) -> dict[str, list[str]]:
 
     return sections
 
+
+# ===========================================================================
+# Part B: Section parsers
+# ===========================================================================
 
 # --- Helper patterns ---
 
@@ -219,6 +263,7 @@ def _strip_bullet(line: str) -> str:
 
 
 def _is_page_marker(line: str) -> bool:
+    """Detect page markers, PDF headers/footers, and repeated name lines."""
     cleaned = _clean(line)
     # Page numbers: "1/2", "2/2", "Page 3"
     if re.match(r"^\d+/\d+$", cleaned) or re.match(r"(?i)^page\s+\d+", cleaned):
@@ -235,6 +280,10 @@ def _is_page_marker(line: str) -> bool:
 # --- B1: Header parser ---
 
 def parse_header(lines: list[str]) -> dict:
+    """
+    Extract name, headline from lines before the first section.
+    Skips contact info (email, phone, linkedin, github).
+    """
     result = {"name": "", "headline": "", "contacts": []}
     
     contact_pattern = re.compile(
@@ -259,22 +308,35 @@ def parse_header(lines: list[str]) -> dict:
 # --- B2: Formation parser ---
 
 def parse_formation(lines: list[str]) -> list[Education]:
+    """
+    Parse education entries.
+    Handles multiple date formats and bullet-prefixed entries.
+    Falls back to treating unrecognized lines as simple entries.
+    """
     education = []
+    undated_lines = []
+    
+    # Pattern for dates in parentheses at end: "Degree, University (1996-2000)" or "Certification (2018)"
+    paren_date_range = re.compile(r"^(.+?)\s*\((\d{4})\s*[-–‑]\s*(\d{4})\)\s*$")
+    paren_date_single = re.compile(r"^(.+?)\s*\((\d{4})\)\s*$")
     
     for line in lines:
         cleaned = _clean(line)
         if not cleaned or _is_page_marker(cleaned):
             continue
         
-        # Skip continuation lines
-        if re.match(r"(?i)^(?:modules?\s*:|diplôme|diplome|mention)", cleaned):
+        # Strip bullet characters
+        stripped = _strip_bullet(cleaned) if _is_bullet(cleaned) else cleaned
+        
+        # Skip sub-headings and continuation lines
+        if re.match(r"(?i)^(?:modules?\s*:|diplôme|diplome|mention|formation\s+acad[ée]mique|formations?\s+professionn\w*|certifications?)$", stripped):
             continue
         
-        # Pattern 1: Date range at start
-        date_match = DATE_RANGE_PATTERN.match(cleaned)
+        # Pattern 1: Date range at start: "2023-2025 Degree, Institution"
+        date_match = DATE_RANGE_PATTERN.match(stripped)
         if date_match:
             years = date_match.group(1).strip()
-            rest = cleaned[date_match.end():].strip()
+            rest = stripped[date_match.end():].strip()
             parts = re.split(r",\s+|\s+[—–]\s+", rest, maxsplit=1)
             degree = parts[0].strip()
             institution = parts[1].strip() if len(parts) > 1 else ""
@@ -282,7 +344,7 @@ def parse_formation(lines: list[str]) -> list[Education]:
             continue
         
         # Pattern 1b: Date range at END of line: "Degree, Institution 09/2022 – 07/2024"
-        end_date_match = DATE_RANGE_END_PATTERN.match(cleaned)
+        end_date_match = DATE_RANGE_END_PATTERN.match(stripped)
         if end_date_match:
             text_part = end_date_match.group(1).strip()
             years = end_date_match.group(2).strip()
@@ -290,6 +352,25 @@ def parse_formation(lines: list[str]) -> list[Education]:
             degree = parts[0].strip()
             institution = parts[1].strip() if len(parts) > 1 else ""
             education.append(Education(years=years, degree=degree, institution=institution))
+            continue
+        
+        # Pattern 1c: Date range in parentheses: "Degree, University (1996-2000)"
+        paren_range_match = paren_date_range.match(stripped)
+        if paren_range_match:
+            text_part = paren_range_match.group(1).strip()
+            years = f"{paren_range_match.group(2)}–{paren_range_match.group(3)}"
+            parts = re.split(r",\s+|\s+[—–]\s+", text_part, maxsplit=1)
+            degree = parts[0].strip()
+            institution = parts[1].strip() if len(parts) > 1 else ""
+            education.append(Education(years=years, degree=degree, institution=institution))
+            continue
+        
+        # Pattern 1d: Single year in parentheses: "Certification (2018)"
+        paren_single_match = paren_date_single.match(stripped)
+        if paren_single_match:
+            text_part = paren_single_match.group(1).strip()
+            years = paren_single_match.group(2)
+            education.append(Education(years=years, degree=text_part, institution=""))
             continue
         
         # Pattern 2: Tab-separated (from DOCX tables)
@@ -302,8 +383,8 @@ def parse_formation(lines: list[str]) -> list[Education]:
             ))
             continue
         
-        # Pattern 3: Single year at start
-        year_match = YEAR_PATTERN.match(cleaned)
+        # Pattern 3: Single year at start: "2025 Degree..."
+        year_match = YEAR_PATTERN.match(stripped)
         if year_match:
             years = year_match.group(1)
             rest = year_match.group(2).strip()
@@ -312,6 +393,16 @@ def parse_formation(lines: list[str]) -> list[Education]:
             institution = parts[1].strip() if len(parts) > 1 else ""
             education.append(Education(years=years, degree=degree, institution=institution))
             continue
+        
+        # Pattern 4: Fallback — collect undated lines for possible second pass
+        if stripped and len(stripped) > 3:
+            undated_lines.append(stripped)
+    
+    # If we found NO dated entries, use all undated lines as simple entries
+    # (handles CVs like Masso's where formations are just bullet lists)
+    if not education and undated_lines:
+        for line in undated_lines:
+            education.append(Education(years="", degree=line, institution=""))
     
     return education
 
@@ -319,6 +410,24 @@ def parse_formation(lines: list[str]) -> list[Education]:
 # --- B3: Experience parser ---
 
 def parse_experiences(lines: list[str]) -> list[Experience]:
+    """
+    Parse professional experience entries.
+    
+    Handles TWO formats:
+    
+    A) Regular CV (date-based):
+        "Sep. 2024 – Sep. 2025 Alternant Data Engineer, Company"
+        "— bullet task"
+        "Stack : tech1, tech2"
+    
+    B) INTM template (Entreprise/Poste/ROLE):
+        "Entreprise Group Vital Durée 6 mois"
+        "Poste Data Engineer"
+        "ROLE :"
+        "task item (no bullet prefix)"
+        "Environnement technique :"
+        "stack item"
+    """
     experiences = []
     current: Optional[Experience] = None
     mode = "tasks"  # tasks | stack
@@ -454,13 +563,14 @@ def parse_experiences(lines: list[str]) -> list[Experience]:
             continue
         
         # --- Both formats: "Environnement technique :" header ---
-        if current and INTM_ENV_PATTERN.match(cleaned):
+        cleaned_no_bullet = _strip_bullet(cleaned) if _is_bullet(cleaned) else cleaned
+        if current and INTM_ENV_PATTERN.match(cleaned_no_bullet):
             mode = "stack"
             i += 1
             continue
         
-        # --- Both formats: Inline "Stack : content" ---
-        stack_match = STACK_PATTERN.match(cleaned)
+        # --- Both formats: Inline "Stack : content" or "● Environnement Technique : content" ---
+        stack_match = STACK_PATTERN.match(cleaned) or STACK_PATTERN.match(cleaned_no_bullet)
         if stack_match and current:
             current.stack.append(stack_match.group(1).strip())
             mode = "stack"
@@ -498,6 +608,9 @@ def parse_experiences(lines: list[str]) -> list[Experience]:
 # --- B4: Projects parser ---
 
 def parse_projects(lines: list[str]) -> list[Experience]:
+    """
+    Parse project entries. Year at start, then bullet items.
+    """
     projects = []
     current: Optional[Experience] = None
     
@@ -544,6 +657,14 @@ def parse_projects(lines: list[str]) -> list[Experience]:
 # --- B5: Technical skills parser ---
 
 def parse_tech_skills(lines: list[str]) -> list[TechSkill]:
+    """
+    Parse technical skills: "Category  Details" (tab, colon, multi-space,
+    or known-keyword separated).
+    
+    Handles PDF output where category and details are single-space separated:
+        "Langages Python, Java, C++, Kotlin"
+    by detecting known category keywords at the start of the line.
+    """
     skills = []
     
     # Known category keywords (French + English, case-insensitive)
@@ -629,6 +750,9 @@ def parse_tech_skills(lines: list[str]) -> list[TechSkill]:
 # --- B6: Languages parser ---
 
 def parse_languages(lines: list[str]) -> dict[str, str]:
+    """
+    Parse language entries into {"Français": "Courant", "Anglais": "C1 (TOEIC 925)"}.
+    """
     languages = {}
     
     for line in lines:
@@ -662,7 +786,20 @@ def parse_languages(lines: list[str]) -> dict[str, str]:
     
     return languages
 
+
+# ===========================================================================
+# Part C: Main parser
+# ===========================================================================
+
 def _parse_intm_blocks(lines: list[str]) -> list[Experience]:
+    """
+    Parse INTM-format blocks that use ROLE:/Environnement technique: structure.
+    Used for duplicate formation/projets sections (formation_2, projets_2, etc.)
+    which are actually training or project entries, not education.
+    
+    Each block starts with a title line (project name, training name, etc.)
+    followed by ROLE:/Environnement technique: sections.
+    """
     experiences = []
     current: Optional[Experience] = None
     mode = "scan"
@@ -730,6 +867,13 @@ def _parse_intm_blocks(lines: list[str]) -> list[Experience]:
 
 
 def parse_cv(text: str) -> CVData:
+    """
+    Parse raw CV text into structured CVData.
+    
+    Handles both regular CVs and INTM-formatted templates.
+    Duplicate sections (formation_2, projets_2, etc.) are parsed
+    as additional experience/project entries.
+    """
     cv = CVData()
     
     # Split into sections
@@ -791,6 +935,11 @@ def parse_cv(text: str) -> CVData:
 
 
 def get_savoir_faire(text: str) -> list[str]:
+    """
+    Extract savoir-faire items from CV text.
+    Returns a list of skill strings, or empty list if not found.
+    Useful for the INTM template which has a separate Savoir Faire section.
+    """
     sections = split_into_sections(text)
     if "savoir_faire" not in sections:
         return []
@@ -803,7 +952,13 @@ def get_savoir_faire(text: str) -> list[str]:
             items.append(cleaned)
     return items
 
+
+# ===========================================================================
+# CLI: pretty-print parsed CV
+# ===========================================================================
+
 def print_cv(cv: CVData):
+    """Pretty-print parsed CV data for debugging."""
     print(f"\n{'='*60}")
     print(f"  Name:       {cv.name}")
     print(f"  Headline:   {cv.headline}")
