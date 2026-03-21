@@ -39,6 +39,8 @@ def _fix_glued_words(text: str) -> str:
         "ShellExecute", "FindWindow", "AutoSys", "DataStage",
         "Spring Boot", "SpringBoot", "IntelliJ", "macOS", "DevOps",
         "scikit-learn", "NumPy", "FastAPI", "LabelImg",
+        "BackOffice", "FrontOffice", "SharePoint",
+        "PaaS", "SaaS", "IaaS",
     ]
     for i, term in enumerate(tech_terms):
         placeholder = f"__TECH{i}__"
@@ -47,36 +49,27 @@ def _fix_glued_words(text: str) -> str:
             protected[placeholder] = term
 
     # Rule 1: lowercase followed by Uppercase (not after slash or dot)
-    # "rapportsPower" → "rapports Power"
     text = re.sub(r"([a-zàâäéèêëïîôùûüÿç])([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸÇ])", r"\1 \2", text)
 
     # Rule 2: digit followed by Uppercase letter
-    # "2Systèmes" → "2 Systèmes"
     text = re.sub(r"(\d)([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸÇ][a-zàâäéèêëïîôùûüÿç])", r"\1 \2", text)
 
-    # Rule 3: closing paren/bracket followed by lowercase
-    # ")approche" → ") approche"
+    # Rule 3: closing paren/bracket followed by letter
     text = re.sub(r"(\))([a-zàâäéèêëïîôùûüÿçA-Z])", r"\1 \2", text)
 
-    # Rule 4: letter followed by opening paren (but not common patterns like "AS/400(")
-    # "AS/400(fichiers" → "AS/400 (fichiers"
+    # Rule 4: letter/digit followed by opening paren
     text = re.sub(r"([a-zàâäéèêëïîôùûüÿç0-9])(\()", r"\1 \2", text)
 
     # Rule 5: period followed by Uppercase (sentence boundary)
-    # "production.Note" → "production. Note"
     text = re.sub(r"\.([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸÇ])", r". \1", text)
 
     # Rule 6: semicolon followed by letter with no space
-    # "relationnelle;API" → "relationnelle; API"
     text = re.sub(r";([A-Za-zàâäéèêëïîôùûüÿç])", r"; \1", text)
 
     # Rule 7: colon followed by letter with no space (but not in time like "12:30")
-    # ":ETL" → ": ETL" but keep "12:30"
     text = re.sub(r":([A-Za-zàâäéèêëïîôùûüÿç])", r": \1", text)
 
     # Rule 8: UPPERCASE block (3+ chars) followed by lowercase (2+ chars)
-    # "RESTpour" → "REST pour", "IBMpour" → "IBM pour"
-    # Requires 3+ uppercase to avoid splitting names like "ELhaf"
     text = re.sub(
         r"([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸÇ]{3,})([a-zàâäéèêëïîôùûüÿç]{2,})",
         r"\1 \2",
@@ -84,7 +77,6 @@ def _fix_glued_words(text: str) -> str:
     )
 
     # Rule 9: plus sign glued to words on either side
-    # "Boot+base" → "Boot + base", "Boot+ base" → "Boot + base"
     text = re.sub(r"(\w)\+(\w)", r"\1 + \2", text)
     text = re.sub(r"(\w)\+\s", r"\1 + ", text)
     text = re.sub(r"\s\+(\w)", r" + \1", text)
@@ -99,9 +91,155 @@ def _fix_glued_words(text: str) -> str:
     return text
 
 
+def _fix_triple_chars(text: str) -> str:
+    """Fix PDF rendering that triples each character.
+
+    Some PDFs produce output like "HHHaaafffiiiddd" for "Hafid".
+    This detects and collapses triple-character patterns.
+    """
+    lines = text.split("\n")
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            result.append(line)
+            continue
+
+        # Check if the line has triple-char pattern
+        words = stripped.split()
+        triple_words = 0
+        total_words = 0
+        for w in words:
+            if len(w) < 3:
+                continue
+            total_words += 1
+            if len(w) % 3 == 0:
+                is_triple = True
+                for j in range(0, len(w), 3):
+                    if j + 2 < len(w) and w[j] == w[j+1] == w[j+2]:
+                        pass
+                    else:
+                        is_triple = False
+                        break
+                if is_triple:
+                    triple_words += 1
+
+        if total_words > 0 and triple_words / total_words > 0.4:
+            new_words = []
+            for w in words:
+                if len(w) >= 3 and len(w) % 3 == 0:
+                    collapsed = ""
+                    is_triple = True
+                    for j in range(0, len(w), 3):
+                        if j + 2 < len(w) and w[j] == w[j+1] == w[j+2]:
+                            collapsed += w[j]
+                        else:
+                            is_triple = False
+                            break
+                    if is_triple:
+                        new_words.append(collapsed)
+                    else:
+                        new_words.append(w)
+                else:
+                    new_words.append(w)
+            result.append(" ".join(new_words))
+        else:
+            result.append(line)
+
+    return "\n".join(result)
+
+
+def _strip_hellowork_header(text: str) -> str:
+    """Remove the Hellowork disclaimer that appears at top of each page."""
+    lines = text.split("\n")
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("CV envoyé par Hellowork"):
+            continue
+        result.append(line)
+    return "\n".join(result)
+
+
+def _strip_repeated_page_headers(text: str) -> str:
+    """Remove repeated name/title lines that appear at the top of each page.
+
+    Heuristic: if the same short line (< 60 chars) appears 3+ times,
+    it's likely a page header. Remove all occurrences after the first.
+    """
+    lines = text.split("\n")
+    if len(lines) < 20:
+        return text
+
+    from collections import Counter
+    short_lines = Counter()
+    for line in lines:
+        stripped = line.strip()
+        if stripped and len(stripped) < 60 and len(stripped.split()) <= 8:
+            short_lines[stripped] += 1
+
+    # Lines that appear 3+ times are likely page headers
+    repeated = {line for line, count in short_lines.items() if count >= 3}
+
+    if not repeated:
+        return text
+
+    seen = set()
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped in repeated:
+            if stripped not in seen:
+                seen.add(stripped)
+                result.append(line)
+            # else skip
+        else:
+            result.append(line)
+
+    return "\n".join(result)
+
+
+def _strip_cv_page_header(text: str) -> str:
+    """Remove 'CV Firstname LASTNAME ...' lines that repeat as page headers.
+
+    E.g. 'CV Issam LAOUDI Consultant senior Mainframe Cobol' appearing
+    at the top of every page.
+    """
+    lines = text.split("\n")
+    if len(lines) < 10:
+        return text
+
+    # Find lines that start with "CV " and appear more than once
+    from collections import Counter
+    cv_lines = Counter()
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("CV ") and len(stripped) < 80:
+            cv_lines[stripped] += 1
+
+    repeated_cv = {line for line, count in cv_lines.items() if count >= 2}
+    if not repeated_cv:
+        return text
+
+    seen = set()
+    result = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped in repeated_cv:
+            if stripped not in seen:
+                seen.add(stripped)
+                # Don't keep the "CV Name Title" line at all — it's just a header
+                pass
+            # skip all occurrences
+        else:
+            result.append(line)
+
+    return "\n".join(result)
+
+
 def _merge_split_date_lines(text: str) -> str:
     _MONTH = r"(?:Jan|Fev|F[ée]v|Mar|Avr|Mai|Juin|Jul|Juil|Aou|Ao[uû]t|Sep|Oct|Nov|Dec|D[ée]c)\w*\.?"
-    
+
     # Pattern: "Month YYYY – <text>" where text is NOT another date
     partial_with_text = re.compile(
         rf"^((?:{_MONTH}\s+)?\d{{4}})\s*[–—\-]\s+(?!(?:{_MONTH}\s+)?\d{{4}})(.+)$",
@@ -117,34 +255,31 @@ def _merge_split_date_lines(text: str) -> str:
         rf"^((?:{_MONTH}\s+)?\d{{4}})\s*$",
         re.IGNORECASE,
     )
-    
+
     lines = text.split("\n")
     result = []
     i = 0
-    
+
     while i < len(lines):
         line = lines[i]
         stripped = line.strip()
-        
+
         m1 = partial_with_text.match(stripped)
         if m1 and i + 1 < len(lines):
             start_date = m1.group(1)
             after_dash = m1.group(2)
-            
-            # Check next line for end date
+
             next_stripped = lines[i + 1].strip()
             m2_date = just_date.match(next_stripped)
             m2_with_text = end_date_with_text.match(next_stripped)
-            
+
             if m2_date:
-                # Next line is just an end date
                 end_date = m2_date.group(1)
                 result.append(f"{start_date} – {end_date}")
                 result.append(after_dash)
                 i += 2
                 continue
             elif m2_with_text:
-                # Next line is end date + bullet text
                 end_date = m2_with_text.group(1)
                 bullet_text = m2_with_text.group(2).strip()
                 result.append(f"{start_date} – {end_date}")
@@ -153,10 +288,10 @@ def _merge_split_date_lines(text: str) -> str:
                     result.append(bullet_text)
                 i += 2
                 continue
-        
+
         result.append(line)
         i += 1
-    
+
     return "\n".join(result)
 
 
@@ -174,7 +309,6 @@ def _line_glue_score(line: str) -> float:
 
 def _find_best_match(target_line: str, candidate_lines: list[str]) -> str | None:
     target_lower = target_line.lower()
-    # Extract "signature" chars (remove spaces to match content regardless of spacing)
     target_sig = re.sub(r"\s+", "", target_lower)
 
     if len(target_sig) < 10:
@@ -185,10 +319,8 @@ def _find_best_match(target_line: str, candidate_lines: list[str]) -> str | None
 
     for cand in candidate_lines:
         cand_sig = re.sub(r"\s+", "", cand.lower())
-        # Check overlap: how many chars of target appear in candidate (order-free)
         if not cand_sig:
             continue
-        # Simple ratio: length of shorter / length of longer
         if target_sig in cand_sig or cand_sig in target_sig:
             score = min(len(target_sig), len(cand_sig)) / max(len(target_sig), len(cand_sig))
             if score > best_score and score > 0.6:
@@ -212,12 +344,10 @@ def _hybrid_line_merge(plumber_text: str, pypdf_text: str) -> str:
         plumber_score = _line_glue_score(stripped)
 
         if plumber_score > 25:
-            # This line looks glued — try to find a better version in pypdf
             match = _find_best_match(stripped, pypdf_lines)
             if match:
                 pypdf_score = _line_glue_score(match.strip())
                 if pypdf_score < plumber_score:
-                    # pypdf's version is less glued — use it
                     result.append(match)
                     continue
 
@@ -226,11 +356,113 @@ def _hybrid_line_merge(plumber_text: str, pypdf_text: str) -> str:
     return "\n".join(result)
 
 
+def _merge_broken_headers(text: str) -> str:
+    """Merge section headers that are split across two lines by PDF extraction.
+
+    E.g. "C\\nompétences" → "Compétences", "E\\nXPERIENCES" → "EXPERIENCES",
+    "EXPÉRIENCES\\nPROFESSIONNELLES" → "EXPÉRIENCES PROFESSIONNELLES"
+    """
+    # Known section header fragments that might get split
+    # Format: (first_line_regex, second_line_regex) → these get merged
+    splits = [
+        # Single letter + rest: "C\nompétences", "E\nXPERIENCES", "F\nOR MATIONS"
+        # The second line might have spaces (broken words) so we allow spaces
+        (re.compile(r"^[A-ZÉÈÊËÀÂÄÎÏÔÙÛÜŸÇ]$"), re.compile(r"^[a-zéèêëàâäîïôùûüÿçA-ZÉÈÊËÀÂÄÎÏÔÙÛÜŸÇ\s]{3,}$")),
+        # "EXPÉRIENCES" + "PROFESSIONNELLES"
+        (re.compile(r"(?i)^EXP[ÉE]RIENCES?$"), re.compile(r"(?i)^PROFES+ION\w+$")),
+        # "COMPÉTENCES" + "TECHNIQUES" / "FONCTIONNELLES" / "INFORMATIQUES"
+        (re.compile(r"(?i)^COMP[ÉE]TENCES?$"), re.compile(r"(?i)^(?:TECHNIQUES?|FONCTIONNELLES?|INFORMATIQUES?|M[ÉE]THODOLOGIQUES?|CL[ÉE]S?|PROFES+IONNELLES?)$")),
+        # "EXPÉRIENCE" + "PROFESSIONNELLE"
+        (re.compile(r"(?i)^EXP[ÉE]RIENCE$"), re.compile(r"(?i)^PROFES+IONNELLE$")),
+        # "FORMATION" + various continuations
+        (re.compile(r"(?i)^FORMATIONS?$"), re.compile(r"(?i)^(?:ACAD[ÉE]MIQUES?|PROFES+IONNELLES?|ET\s+CERTIFICATIONS?)$")),
+    ]
+
+    lines = text.split("\n")
+    result = []
+    i = 0
+    while i < len(lines):
+        if i + 1 < len(lines):
+            stripped = lines[i].strip()
+            next_stripped = lines[i + 1].strip()
+            merged = False
+            for first_pat, second_pat in splits:
+                if first_pat.match(stripped) and second_pat.match(next_stripped):
+                    if len(stripped) == 1:
+                        # Single letter merge: "F" + "OR MATIONS" -> "FORMATIONS"
+                        # Remove internal spaces from the second part since it's a broken word
+                        merged_text = stripped + next_stripped.replace(" ", "")
+                    else:
+                        merged_text = stripped + " " + next_stripped
+                    result.append(merged_text)
+                    i += 2
+                    merged = True
+                    break
+            if merged:
+                continue
+        result.append(lines[i])
+        i += 1
+    return "\n".join(result)
+
+
+def _merge_broken_date_ranges(text: str) -> str:
+    """Merge date ranges that are split across lines with a trailing dash.
+
+    E.g. "12/2022-\\n12/2025" → "12/2022- 12/2025"
+    Also: "12/2022-  Groupe BPCE\\n12/2025" → needs the dates rejoined
+    """
+    lines = text.split("\n")
+    result = []
+    i = 0
+    date_piece = re.compile(r"\d{2}/\d{4}")
+
+    while i < len(lines):
+        stripped = lines[i].rstrip()
+        # Check if line ends with "MM/YYYY-" or "MM/YYYY –" pattern
+        if re.search(r"\d{2}/\d{4}\s*[-–—]\s*$", stripped) and i + 1 < len(lines):
+            next_stripped = lines[i + 1].strip()
+            # Check if next line starts with a date
+            if date_piece.match(next_stripped):
+                # Merge: "12/2022-\n12/2025" → "12/2022- 12/2025"
+                result.append(stripped + " " + next_stripped)
+                i += 2
+                continue
+        result.append(lines[i])
+        i += 1
+    return "\n".join(result)
+
+
+def _strip_private_use_chars(text: str) -> str:
+    """Replace Private Use Area characters (U+E000–U+F8FF) with safe equivalents.
+
+    PDF extraction from Symbol/Wingdings fonts produces chars like:
+    - 0xF0A7 (§ in Symbol) → use as bullet marker
+    - 0xF0B7 (• in Symbol) → use as bullet marker  
+    - 0xF0D8 (arrow in Symbol) → strip
+    These render as box-with-question-mark in Word.
+    """
+    result = []
+    for ch in text:
+        cp = ord(ch)
+        if 0xE000 <= cp <= 0xF8FF:
+            # Map common Symbol font PUA chars to their intended meanings
+            if cp in (0xF0A7, 0xF0B7, 0xF0B0):
+                result.append("•")  # bullet
+            elif cp == 0xF0D8:
+                result.append("")   # arrow — just strip
+            else:
+                result.append(" ")  # replace unknown PUA with space
+        elif cp == 0xFFFD:
+            result.append("")       # replacement character — strip
+        else:
+            result.append(ch)
+    return "".join(result)
+
+
 def extract_from_pdf(path: str) -> str:
     plumber_text = ""
     pypdf_text = ""
 
-    # Extract with both
     try:
         plumber_text = _extract_pdf_pdfplumber(path)
     except Exception:
@@ -240,7 +472,6 @@ def extract_from_pdf(path: str) -> str:
     except Exception:
         pass
 
-    # If one failed, use the other
     if not plumber_text.strip() and not pypdf_text.strip():
         return ""
     if not plumber_text.strip():
@@ -248,14 +479,17 @@ def extract_from_pdf(path: str) -> str:
     elif not pypdf_text.strip():
         text = plumber_text
     else:
-        # Step 1: Fix split date lines on pdfplumber FIRST
-        # (before hybrid swap, so dates don't get lost)
         plumber_fixed = _merge_split_date_lines(plumber_text)
-
-        # Step 2: Line-by-line hybrid (pdfplumber base, swap in pypdf where less glued)
         text = _hybrid_line_merge(plumber_fixed, pypdf_text)
 
-    # Step 3: Fix remaining glued words with regex
+    # Post-processing pipeline
+    text = _fix_triple_chars(text)
+    text = _strip_hellowork_header(text)
+    text = _strip_cv_page_header(text)
+    text = _strip_repeated_page_headers(text)
+    text = _merge_broken_headers(text)
+    text = _merge_broken_date_ranges(text)
+    text = _strip_private_use_chars(text)
     text = _fix_glued_words(text)
 
     return text
@@ -266,9 +500,7 @@ def extract_from_docx(path: str) -> str:
 
     doc = Document(path)
     lines = []
-    
-    # Build a queue of body-level Paragraph objects
-    # doc.paragraphs only contains body-level <w:p>, not ones inside tables
+
     para_queue = list(doc.paragraphs)
     para_idx = 0
 
@@ -276,17 +508,13 @@ def extract_from_docx(path: str) -> str:
         tag = element.tag.split("}")[-1]
 
         if tag == "p":
-            # Match this element to the next body-level paragraph
             if para_idx < len(para_queue) and para_queue[para_idx]._p is element:
                 text = para_queue[para_idx].text
-                # Clean: replace tab+newline (heading patterns) with space
                 text = text.replace("\t\n", " ").replace("\n", " ")
-                # Replace non-breaking spaces with regular spaces
                 text = text.replace("\xa0", " ")
                 lines.append(text)
                 para_idx += 1
             else:
-                # Fallback: manual extraction
                 texts = []
                 for node in element.iter():
                     node_tag = node.tag.split("}")[-1]
@@ -295,7 +523,6 @@ def extract_from_docx(path: str) -> str:
                 lines.append("".join(texts))
 
         elif tag == "tbl":
-            # Tables: read row by row, tab-separated
             for tr in element.iter():
                 tr_tag = tr.tag.split("}")[-1]
                 if tr_tag == "tr":
@@ -312,7 +539,6 @@ def extract_from_docx(path: str) -> str:
                     if any(cells):
                         lines.append("\t".join(cells))
 
-    # Apply glue-fix regex for any remaining issues
     text = "\n".join(lines)
     text = _fix_glued_words(text)
     return text

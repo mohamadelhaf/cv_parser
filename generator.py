@@ -137,12 +137,18 @@ def _normalize_month(token: str) -> str:
 
 def _parse_date_piece(piece: str):
     piece = piece.strip().replace("–", "-").replace("—", "-")
+    # MM/YYYY format
+    m = re.match(r"^(\d{2})/(\d{4})$", piece)
+    if m:
+        return int(m.group(2)), int(m.group(1))
+    # Month YYYY format
     m = re.match(r"(?i)^([A-Za-zÀ-ÿ\.]+)\s+(\d{4})$", piece)
     if m:
         month = MONTHS.get(_normalize_month(m.group(1)))
         year = int(m.group(2))
         if month:
             return year, month
+    # Just YYYY
     m = re.match(r"^(\d{4})$", piece)
     if m:
         return int(m.group(1)), 1
@@ -278,6 +284,8 @@ def _parse_title_line(title_line: str) -> tuple[str, str]:
             right = _duration_label(right)
         elif re.match(r"(?i)^durée", right):
             pass  # already a duration
+        elif re.match(r"(?i)^depuis", right):
+            pass  # open-ended duration like "Depuis Mars 2022"
         else:
             # Right side is a subtitle (e.g. project description) → merge with left
             left = f"{left} {right}"
