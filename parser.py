@@ -9,9 +9,20 @@ from pathlib import Path
 from parser_v2 import ParsedCV, ProfileData, Section, ExperienceBlock, TableRow
 
 
-MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY", "YOUR_KEY_HERE")
-MISTRAL_MODEL   = "mistral-small-latest"
-CACHE_DIR       = Path(".cache/mistral")
+MISTRAL_MODEL = "mistral-small-latest"
+CACHE_DIR     = Path(".cache/mistral")
+
+
+def _get_api_key() -> str:
+    """Read Mistral API key — works both locally and on Streamlit Cloud."""
+    # Streamlit Cloud: secrets are injected via st.secrets
+    try:
+        import streamlit as st
+        return st.secrets["MISTRAL_API_KEY"]
+    except Exception:
+        pass
+    # Local: read from environment variable
+    return os.environ.get("MISTRAL_API_KEY", "")
 
 
 def _cache_key(text: str) -> str:
@@ -87,19 +98,23 @@ Rules:
 def _call_mistral(raw_text: str) -> dict:
     from mistralai.client import Mistral
 
+    # Get API key at call time — works on both local and Streamlit Cloud
+    api_key = _get_api_key()
+    if not api_key:
+        raise ValueError("Clé API Mistral introuvable. Vérifiez MISTRAL_API_KEY dans les secrets Streamlit ou les variables d'environnement.")
+
     key = _cache_key(raw_text)
     cached = _load_cache(key)
     if cached:
-        print("   ✅ Loaded from cache (free)")
+        print("   ✅ Chargé depuis le cache (gratuit)")
         return cached
 
-    print(f"   🤖 Calling Mistral ({MISTRAL_MODEL})...")
-    client = Mistral(api_key=MISTRAL_API_KEY)
+    print(f"   🤖 Appel Mistral ({MISTRAL_MODEL})...")
+    client = Mistral(api_key=api_key)
 
-    # Truncate if very long — a CV is usually 1–4k chars
     max_chars = 14000
     if len(raw_text) > max_chars:
-        print(f"   ⚠️  Text truncated to {max_chars} chars")
+        print(f"   ⚠️  Texte tronqué à {max_chars} caractères")
         raw_text = raw_text[:max_chars]
 
     response = client.chat.complete(
@@ -114,20 +129,18 @@ def _call_mistral(raw_text: str) -> dict:
 
     content = response.choices[0].message.content.strip()
 
-    # Strip accidental markdown fences just in case
     if content.startswith("```"):
         content = re.sub(r"^```(?:json)?\n?", "", content)
         content = re.sub(r"\n?```$", "", content)
 
     result = json.loads(content)
     _save_cache(key, result)
-    print("   ✅ Parsed and cached")
+    print("   ✅ Analysé et mis en cache")
     return result
 
 
 def _compute_duration(dates: str) -> str:
     """Convert 'Mars 2022 – Février 2026' to 'Durée 4 ans'."""
-    import re
     MONTHS = {
         "jan": 1, "janv": 1, "janvier": 1,
         "fev": 2, "fév": 2, "févr": 2, "fevrier": 2, "février": 2,
@@ -147,11 +160,9 @@ def _compute_duration(dates: str) -> str:
 
     cleaned = dates.strip()
 
-    # Already has Durée/Depuis
     if re.match(r"(?i)^(durée|depuis)", cleaned):
         return cleaned
 
-    # Open-ended: contains aujourd'hui / present / en cours
     if re.search(r"(?i)(aujourd|présent|present|en cours|actuel)", cleaned):
         start_part = re.split(r"\s*[-–—]\s*", cleaned)[0].strip()
         return f"Depuis {start_part}"
@@ -189,8 +200,6 @@ def _compute_duration(dates: str) -> str:
 
 
 def _json_to_parsed_cv(data: dict) -> ParsedCV:
-
-
     cv = ParsedCV()
 
     # ── Profile ──
@@ -218,13 +227,11 @@ def _json_to_parsed_cv(data: dict) -> ParsedCV:
         section = Section(header="Formation", content_type="table")
         for e in education:
             if isinstance(e, dict):
-                year   = e.get("year", "")
+                year  = e.get("year", "")
                 degree = e.get("degree", "")
-                inst   = e.get("institution", "")
-                etype  = e.get("type", "")
-                # Build left column: "2018 : Degree name"
-                left   = f"{year} : {degree}" if year else degree
-                # Build right column: institution, with certification label if relevant
+                inst  = e.get("institution", "")
+                etype = e.get("type", "")
+                left  = f"{year} : {degree}" if year else degree
                 if etype and "certif" in etype.lower() and inst:
                     right = f"{inst} (Certification)"
                 else:
@@ -238,7 +245,6 @@ def _json_to_parsed_cv(data: dict) -> ParsedCV:
     savoir_faire = data.get("savoir_faire", [])
     profile_text = data.get("profile", "")
 
-    # Build savoir faire bullets from explicit list or split from profile
     sf_items = []
     if savoir_faire:
         sf_items = [s for s in savoir_faire if s and s.strip()]
@@ -298,15 +304,10 @@ def _json_to_parsed_cv(data: dict) -> ParsedCV:
             tasks   = exp_data.get("tasks", [])
             stack   = exp_data.get("tech_stack", [])
 
-            # Build title line exactly as generator.py expects:
-            # "Entreprise COMPANY\tDurée X ans"
-            duration = _compute_duration(dates)
+            duration   = _compute_duration(dates)
             title_line = f"Entreprise {company}\t{duration}" if duration else f"Entreprise {company}"
+            poste      = f"Poste {role}" if role else ""
 
-            # Poste line
-            poste = f"Poste {role}" if role else ""
-
-            # Sub-sections list of (header, [items])
             sub_sections = []
 
             if context and context.strip():
@@ -318,7 +319,7 @@ def _json_to_parsed_cv(data: dict) -> ParsedCV:
                     sub_sections.append(("ROLE :", clean_tasks))
 
             if stack:
-                stack_list = stack if isinstance(stack, list) else [stack]
+                stack_list  = stack if isinstance(stack, list) else [stack]
                 clean_stack = [s for s in stack_list if s and s.strip()]
                 if clean_stack:
                     sub_sections.append(("Environnement technique :", clean_stack))
@@ -349,9 +350,9 @@ def parse_file_with_mistral(file_path: str) -> ParsedCV:
     sys.path.insert(0, str(Path(__file__).parent))
     from extractor import extract_text
 
-    print(f"📄 Extracting: {Path(file_path).name}")
+    print(f"📄 Extraction : {Path(file_path).name}")
     raw_text = extract_text(file_path)
-    print(f"   {len(raw_text)} characters extracted")
+    print(f"   {len(raw_text)} caractères extraits")
     return parse_with_mistral(raw_text)
 
 
@@ -359,14 +360,13 @@ if __name__ == "__main__":
     from parser_v2 import print_parsed
 
     if len(sys.argv) < 2:
-        print('Usage: python parser_mistral.py "/path/to/cv.pdf"')
-        print('Set key: export MISTRAL_API_KEY="your-key"')
+        print('Usage: python parser.py "/chemin/vers/cv.pdf"')
+        print('Clé API : export MISTRAL_API_KEY="votre-clé"')
         sys.exit(1)
 
     cv = parse_file_with_mistral(sys.argv[1])
     print_parsed(cv)
 
-    # Save raw JSON
     from extractor import extract_text
     raw = extract_text(sys.argv[1])
     cached = _load_cache(_cache_key(raw))
@@ -374,4 +374,4 @@ if __name__ == "__main__":
         out = Path(sys.argv[1]).stem + "_mistral.json"
         with open(out, "w", encoding="utf-8") as f:
             json.dump(cached, f, ensure_ascii=False, indent=2)
-        print(f"\n💾  JSON saved → {out}")
+        print(f"\n💾  JSON sauvegardé → {out}")
