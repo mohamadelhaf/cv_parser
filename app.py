@@ -46,22 +46,11 @@ def parse_intm_docx(input_path: str):
 def parse_text_input(input_path: str):
     """
     Parse n'importe quel CV (PDF, DOCX, TXT) avec Mistral AI.
-    Remplace l'ancienne chaîne parser.py + adapter.py.
-    Bascule sur l'ancien parseur si Mistral n'est pas disponible.
     """
     from extractor import extract_text
+    from parser import parse_with_mistral
     text = extract_text(input_path)
-
-    try:
-        from parser import parse_with_mistral
-        return parse_with_mistral(text)
-    except Exception as e:
-        st.warning(f"⚠️ Mistral indisponible ({e}), utilisation du parseur de secours.")
-        from parser import parse_cv, get_savoir_faire
-        from adapter import cvdata_to_parsed
-        cv_data = parse_cv(text)
-        sf = get_savoir_faire(text)
-        return cvdata_to_parsed(cv_data, savoir_faire=sf)
+    return parse_with_mistral(text)
 
 
 def generate_output(cv, template_path: str) -> bytes:
@@ -72,10 +61,6 @@ def generate_output(cv, template_path: str) -> bytes:
     with open(output_path, "rb") as f:
         return f.read()
 
-
-# ════════════════════════════════════════════════════════
-# BARRE LATÉRALE
-# ════════════════════════════════════════════════════════
 
 st.sidebar.title("📄 DDC Lab")
 st.sidebar.markdown("Convertissez n'importe quel CV au format INTM")
@@ -129,10 +114,6 @@ if not uploaded_file:
     st.stop()
 
 
-# ════════════════════════════════════════════════════════
-# ANALYSE DU CV
-# ════════════════════════════════════════════════════════
-
 ext = os.path.splitext(uploaded_file.name)[1].lower()
 input_path = save_temp(uploaded_file.getvalue(), ext)
 
@@ -172,10 +153,6 @@ if st.session_state.get("_file_key") != file_key:
 cv_edit = st.session_state.cv
 template_path = st.session_state._template_path
 
-
-# ════════════════════════════════════════════════════════
-# ONGLETS
-# ════════════════════════════════════════════════════════
 
 tab_profile, tab_sections, tab_generate = st.tabs(["👤 Profil", "📋 Sections", "📥 Générer"])
 
@@ -378,10 +355,6 @@ with tab_sections:
                 cv_edit.sections.insert(idx, ns)
             st.rerun()
 
-
-# ════════════════════════════════════════════════════════
-# ONGLET GÉNÉRATION
-# ════════════════════════════════════════════════════════
 
 with tab_generate:
     st.header("Générer le document")
