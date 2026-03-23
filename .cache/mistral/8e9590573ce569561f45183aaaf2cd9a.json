@@ -1,0 +1,248 @@
+{
+  "name": "Inconnu",
+  "title": "Consultante QA- Chef de projet tests",
+  "language": "Français",
+  "years_experience": "24 ans",
+  "profile": "Consultante expérimentée en QA et gestion de projets tests avec une expertise solide dans les domaines de la monétique, de l'assurance (IARD, VIE), et de la gestion client bancaire. Maîtrise des méthodologies Agile (Scrum, Kanban) et des cycles en V, ainsi que des outils de gestion de tests (JIRA, X-RAY, HP-ALM) et des environnements cloud (Microsoft Azure, AWS). Certifiée ISTQB (Fondation et Test Manager) et ITIL V4, je pilote des équipes pluridisciplinaires et assure la coordination des projets de refonte et de migration.",
+  "savoir_faire": [
+    "Gestion de projets tests (Scrum Master, coordination d'équipes)",
+    "Méthodologies Agile et cycle en V",
+    "Gestion des environnements de test et automatisation",
+    "Expertise en monétique (back office porteur/acquéreur)",
+    "Gestion des flux d'encaissements (prélèvements, virements, chèques)",
+    "Certifications ISTQB et ITIL V4"
+  ],
+  "skills": [
+    {
+      "category": "Méthodes",
+      "details": "Méthode Agile (Scrum, Kanban), Cycle en V, Pilotage de projet"
+    },
+    {
+      "category": "Outils",
+      "details": "JIRA, X-RAY, Soap UI, Confluence, HP-ALM, Test Link, ALM-HP, SharePoint, One Drive, Microsoft 365 (Teams, PPT, Excel)"
+    },
+    {
+      "category": "Langages",
+      "details": "SQL, COBOL, PACBASE"
+    },
+    {
+      "category": "Gestion de données",
+      "details": "IBM DB2, Oracle, Microsoft Azure, AWS"
+    },
+    {
+      "category": "Certifications",
+      "details": "ISTQB (Fondation, Test Manager), ITIL V4"
+    }
+  ],
+  "languages": [
+    {
+      "language": "Roumain",
+      "level": "Langue maternelle"
+    },
+    {
+      "language": "Anglais",
+      "level": "Intermédiaire"
+    }
+  ],
+  "education": [
+    {
+      "degree": "Master 2 (DESS CAAE)",
+      "institution": "IAE BORDEAUX IV",
+      "year": "2000",
+      "type": "Master"
+    },
+    {
+      "degree": "Master 1 (Micro-Biologie)",
+      "institution": "Université de BORDEAUX 2",
+      "year": "1999",
+      "type": "Master"
+    },
+    {
+      "degree": "COBOL/PACBASE/DB2 - Formation IT - Développement",
+      "institution": "2IAP",
+      "year": "2001",
+      "type": "Formation professionnelle"
+    },
+    {
+      "degree": "Certification ITIL Fondations V4",
+      "institution": "ORSYS",
+      "year": "2021",
+      "type": "Certification"
+    },
+    {
+      "degree": "Certification ISTQB Test Manager",
+      "institution": "ORSYS",
+      "year": "2020",
+      "type": "Certification"
+    },
+    {
+      "degree": "Formation Pilotage de projet",
+      "institution": "ORSYS",
+      "year": "2019",
+      "type": "Formation"
+    },
+    {
+      "degree": "Certification ISTQB - Fondations",
+      "institution": "ORSYS",
+      "year": "2015",
+      "type": "Certification"
+    }
+  ],
+  "experiences": [
+    {
+      "company": "AXA France",
+      "role": "TEST LEAD - QA",
+      "dates": "Octobre 2023 – mai 2025",
+      "context": "En prestation pour le Domaine des moyens de paiements (20 personnes) - Encaissements. Squad encaissements (équipe de 6 personnes) : Versioning applicatif & Projets & Contributions.",
+      "tasks": [
+        "Projet de mise en place d’une nouvelle application QUARTZ pour la consultation des quittances à l’arriéré pour les agents et les inspecteurs comptables",
+        "Projet de migration des données DL1 vers du DB2",
+        "Elaboration des stratégies de test pour les projets ou pour la version",
+        "Rédaction cahier de test, conception, exécution et TNR",
+        "Participation aux campagnes de tests transverse, et pilotage de bout en bout",
+        "Mise en place du référentiel de test sous X-Ray et de la documentation sous Confluence",
+        "Rôle de Scrum Master : Animation des instances AGILES (Daily, Retro), suivi des KPI"
+      ],
+      "tech_stack": [
+        "JIRA",
+        "X-RAY",
+        "SOAPUI",
+        "Excel",
+        "PPT",
+        "Confluence"
+      ]
+    },
+    {
+      "company": "SOCIETE GENERALE",
+      "role": "Chef de projet- Coordination",
+      "dates": "2021 - 2023",
+      "context": "En prestation pour le domaine OSE- Organisation des Environnements de test.",
+      "tasks": [
+        "Projet « YOGA » : Intégration du SI Crédit du Nord dans le SI Société Générale",
+        "Participation à la mise en place et au maintien des environnements d’homologation au sein d’une équipe de pilotage",
+        "Pilotage d’un centre de service à Bucarest (env. 8 personnes) en charge des demandes utilisateur et de la surveillance des environnements de test",
+        "Mise en place de l’automatisation des tests de connexion",
+        "Mise en place des processus d’habilitation permettant aux utilisateurs l’accès aux environnements de test",
+        "Coordination des activités de support et incidents",
+        "Reporting et animation des réunions",
+        "Mise à jour du site intranet du projet avec les différents process à suivre"
+      ],
+      "tech_stack": [
+        "ALM-HP",
+        "JIRA",
+        "Excel",
+        "PPT"
+      ]
+    },
+    {
+      "company": "SOCIETE GENERALE",
+      "role": "Chef de projet Tests",
+      "dates": "2016 - 2020",
+      "context": "En prestation pour le domaine CLIENT (50aine de personnes).",
+      "tasks": [
+        "Projets : Vente à distance et Signature électronique des offres client, Parrainage digital, Ciblage des offres commerciales, et suivi du Run évolutif pour le Domaine Gestion Client BDDF",
+        "Pilotage de l'équipe de test externalisée en Centre de Service (chiffrage, suivi et recette)",
+        "Etude des expressions de besoin et des spécifications fonctionnelles",
+        "Rédaction des Stratégies de test, mise en place des Plannings",
+        "Rédaction de cahiers de test fonctionnel de bout en bout",
+        "Suivi des anomalies, suivi de la qualification, des TNR",
+        "Animation des réunions de suivi d'équipe",
+        "Participation aux Comités projets et Comités de pilotage"
+      ],
+      "tech_stack": [
+        "ALM",
+        "JIRA",
+        "Excel",
+        "PPT"
+      ]
+    },
+    {
+      "company": "CREDIT AGRICOLE (CA-PS)",
+      "role": "TEST LEAD",
+      "dates": "Mai 2015 - Mai 2016",
+      "context": "En prestation pour le Domaine Monétique.",
+      "tasks": [
+        "Projet : Refonte du Back Office Monétique Acquéreur",
+        "Suivi d'une équipe de tests fonctionnels de 5 personnes",
+        "Rôle de pilotage des campagnes de test de bout en bout (planification et reporting)",
+        "Participation aux tests fonctionnels sur les flux interbancaires et la partie acquéreur",
+        "Suivi des anomalies"
+      ],
+      "tech_stack": [
+        "Excel",
+        "PPT"
+      ]
+    },
+    {
+      "company": "ALLIANZ TRADE (Euler Hermes)",
+      "role": "TEST LEAD",
+      "dates": "Octobre 2013 - Octobre 2014",
+      "context": "En prestation pour le pôle méthodologie et opérations de test.",
+      "tasks": [
+        "Projet : Evolutions du SI Assurance-crédit : Run, Versionning & Project",
+        "Suivi d'une équipe de tests fonctionnels de 5 personnes : plan de charge, plannings, suivi des activités de test (design, run, TNR)",
+        "Elaboration des stratégies de test pour certains projets",
+        "Reporting, remontée des alertes"
+      ],
+      "tech_stack": [
+        "ALM",
+        "Excel",
+        "PPT"
+      ]
+    },
+    {
+      "company": "CAISSE EPARGNE (ITCE)",
+      "role": "AMOA-Coordination",
+      "dates": "2007 à 2013",
+      "context": "Projet de fusion de SI : Migration de données, regroupement de 3 caisses régionales.",
+      "tasks": [
+        "Rôle de coordination dans une équipe de pilotage de la migration",
+        "Rédaction de spécifications des règles fonctionnelles pour un ensemble applicatif (Titres et Gestion des successions)",
+        "Suivi des phases de certification statiques et dynamique, contrôles des compteurs",
+        "Suivi des phases de recette utilisateur et support"
+      ],
+      "tech_stack": []
+    },
+    {
+      "company": "CREDIT AGRICOLE- SA",
+      "role": "AMOA- Coordination",
+      "dates": "Mai 2005 - Décembre 2006",
+      "context": "Projet de fusion des SI de la caisse Brie-Picardie avec le SI Ile de France.",
+      "tasks": [
+        "Rédaction des dossiers des évolutions à apporter au SI cible et suivi avec les référents applicatifs",
+        "Suivi de la migration des données avec le prestataire externe",
+        "Relation avec les DBA pour la mise à disposition des données",
+        "Animation des comités de migration, comités de pilotage",
+        "Rédaction des comptes rendus et bilans quantitatifs et qualitatif de la migration"
+      ],
+      "tech_stack": []
+    },
+    {
+      "company": "THALES SI",
+      "role": "Ingénieur d’Etude",
+      "dates": "2001 - Décembre 2005",
+      "context": "Plusieurs missions de développements et analyse informatique en environnement mainframe pour le compte de banques ou assurances.",
+      "tasks": [
+        "Etudes d’impact et analyse technique",
+        "Rédaction des spécifications techniques",
+        "Maintenance Corrective et Evolutive (développement et tests unitaires)",
+        "Programmation COBOL/PACBASE/ Requêtes SQL"
+      ],
+      "tech_stack": [
+        "COBOL",
+        "PACBASE",
+        "SQL"
+      ]
+    },
+    {
+      "company": "Inconnu",
+      "role": "Consultante QA- Chef de projet tests",
+      "dates": "Juin 2025 – à ce jour",
+      "context": "Dans le cadre de mon activité j’ai participé sur plusieurs projets dont un dernièrement sur la monétique dans le cadre d’un projet de refonte du back office porteur en tant que responsable des recettes d’intégration et bout en bout.",
+      "tasks": [
+        "Environnement fonctionnel : Back office monétique porteur, domaine opérations, litiges et fraude"
+      ],
+      "tech_stack": []
+    }
+  ]
+}
