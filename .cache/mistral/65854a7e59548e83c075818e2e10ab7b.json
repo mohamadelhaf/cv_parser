@@ -1,0 +1,132 @@
+{
+  "name": "Mohamad ELhaf",
+  "title": "Ingénieur Data & IA",
+  "language": "Français",
+  "years_experience": "",
+  "profile": "Ingénieur Data & Logiciel (Master 2 UPEC) avec une pratique complète du cycle de vie applicatif : ETL (Node.js/SQL), APIs back-end (Java/Spring), conteneurisation Docker et intégration de prototypes IA/CV pendant les études (YOLOv8/YOLOv5, Faster R-CNN). Habitué à transformer des besoins flous en logiciels fiables, à modéliser des données propres et à documenter les flux. Note : pas encore de modèles ML déployés en production.",
+  "savoir_faire": [
+    "Développement de pipelines ETL robustes",
+    "Modélisation et gouvernance des données",
+    "Intégration de solutions IA/ML (YOLO, Faster R-CNN)",
+    "Automatisation de processus (Excel/VBA, Power BI)",
+    "Déploiement et conteneurisation (Docker, Kubernetes)",
+    "Gestion de projet Agile/Scrum"
+  ],
+  "skills": [
+    {
+      "category": "Langages",
+      "details": "Python, Java, C++, Kotlin, JavaScript, Node.js, SQL"
+    },
+    {
+      "category": "Back-end",
+      "details": "Spring Boot, Express.js"
+    },
+    {
+      "category": "Bases de données",
+      "details": "PostgreSQL, MySQL, Microsoft SQL Server"
+    },
+    {
+      "category": "IA/ML",
+      "details": "TensorFlow, Keras, PyTorch, scikit-learn, NumPy, OpenCV"
+    },
+    {
+      "category": "Cloud/DevOps",
+      "details": "Docker, Kubernetes, Terraform, OpenStack, Microsoft Azure, Git, Linux"
+    },
+    {
+      "category": "Data Visualization",
+      "details": "Power BI, Tableau, Matplotlib, Seaborn"
+    },
+    {
+      "category": "OS",
+      "details": "Windows, Linux, macOS, Debian"
+    },
+    {
+      "category": "Méthodes",
+      "details": "Agile/Scrum, Kanban, Jira, Trello"
+    }
+  ],
+  "languages": [
+    {
+      "language": "Français",
+      "level": "Courant"
+    },
+    {
+      "language": "Anglais",
+      "level": "C1 (TOEIC 925)"
+    }
+  ],
+  "education": [
+    {
+      "degree": "Master 2 Systèmes distribués & Data Science",
+      "institution": "Université Paris-Est Créteil (UPEC)",
+      "year": "2025",
+      "type": "Master"
+    },
+    {
+      "degree": "Licence Chef de Projet Digital",
+      "institution": "Pôle Léonard de Vinci — IIM Paris",
+      "year": "2023",
+      "type": "Licence"
+    },
+    {
+      "degree": "Licence Informatique",
+      "institution": "Université Saint-Joseph de Beyrouth (USJ)",
+      "year": "2022",
+      "type": "Licence"
+    }
+  ],
+  "experiences": [
+    {
+      "company": "Pompac Développement",
+      "role": "Alternant Data Engineer",
+      "dates": "Sep. 2024 – Sep. 2025",
+      "context": "",
+      "tasks": [
+        "Développement de pipelines d’extraction/transformations depuis l’ERP IBM AS/400 (fichiers .DTFX)",
+        "Automatisation de reporting multi-sources Excel/VBA : -60% de temps de traitement manuel",
+        "Scripts VBA avec APIs Windows (ShellExecute, FindWindow) pour exécution conditionnelle & monitoring",
+        "Intégration de rapports Power BI (DAX) et amélioration de la gouvernance des données"
+      ],
+      "tech_stack": [
+        "Excel/VBA",
+        "Node.js",
+        "SQL",
+        "Power BI",
+        "Kubernetes",
+        "Terraform"
+      ]
+    },
+    {
+      "company": "Groupe Vital",
+      "role": "Stagiaire Ingénieur Data",
+      "dates": "Jan. 2023 – Jul. 2023",
+      "context": "Conception en équipe d’un Data Warehouse (approche Agile)",
+      "tasks": [
+        "Pipelines ETL robustes avec CI/CD (MSSQL, Node.js, GitLab)",
+        "Intégration de rapports Power BI (DAX) et amélioration de la gouvernance des données"
+      ],
+      "tech_stack": [
+        "MSSQL",
+        "Node.js",
+        "GitLab",
+        "Power BI"
+      ]
+    },
+    {
+      "company": "Régie ALFA",
+      "role": "Stagiaire Développeur Full-Stack",
+      "dates": "Juin 2022 – Août 2022",
+      "context": "",
+      "tasks": [
+        "Développement d’un gestionnaire de tâches interne en Java/Spring Boot & MySQL",
+        "Traduction des besoins métiers en spécifications fonctionnelles"
+      ],
+      "tech_stack": [
+        "Java",
+        "Spring Boot",
+        "MySQL"
+      ]
+    }
+  ]
+}
