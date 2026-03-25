@@ -4,29 +4,29 @@ import os
 import zipfile
 import copy
 
+from dotenv import load_dotenv
+load_dotenv()
+
 st.set_page_config(page_title="DDC Lab", page_icon="📄", layout="wide")
 
 
+# ═══════════════════════════════════════════════════════════════════
+# Helpers partagés
+# ═══════════════════════════════════════════════════════════════════
+
 def is_intm_format(file_bytes: bytes) -> bool:
-    """
-    Détecte si un fichier DOCX est un DDC INTM.
-    Critère fiable : présence des styles personnalisés INTM
-    ('Profil', 'Titre Référence', 'Profil : Experience')
-    qui n'existent que dans les documents INTM.
-    Un simple logo dans l'en-tête ne suffit pas — beaucoup de CVs en ont.
-    """
     try:
         with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
             tmp.write(file_bytes)
             tmp_path = tmp.name
         with zipfile.ZipFile(tmp_path) as z:
-            if "word/styles.xml" not in z.namelist():
-                return False
-            styles_xml = z.read("word/styles.xml").decode("utf-8")
-            # Les styles INTM sont uniques et ne se trouvent pas dans des CVs ordinaires
-            intm_styles = ["Titre R&#xE9;f&#xE9;rence", "Titre Référence",
-                           "Profil : Experience", "Profil : Exp&#xE9;rience"]
-            return any(s in styles_xml for s in intm_styles)
+            header_rels = [f for f in z.namelist()
+                           if "header" in f.lower() and f.endswith(".rels")]
+            for rel_file in header_rels:
+                content = z.read(rel_file).decode("utf-8")
+                if "image" in content.lower():
+                    return True
+        return False
     except Exception:
         return False
 
@@ -37,20 +37,27 @@ def save_temp(file_bytes: bytes, suffix: str) -> str:
         return f.name
 
 
-def parse_intm_docx(input_path: str):
-    """Parse un DDC INTM existant — utilise le parseur basé sur les styles."""
-    from parser_v2 import parse_docx
-    return parse_docx(input_path)
+def parse_cv_file(file_bytes: bytes, filename: str):
+    """Parse un fichier CV (tout format) en objet ParsedCV."""
+    ext = os.path.splitext(filename)[1].lower()
+    tmp_path = save_temp(file_bytes, ext)
+
+    if ext == ".docx" and is_intm_format(file_bytes):
+        from parser_v2 import parse_docx
+        return parse_docx(tmp_path), "intm"
+    else:
+        from parser import parse_file_with_mistral
+        return parse_file_with_mistral(tmp_path), "text"
 
 
-def parse_text_input(input_path: str):
-    """
-    Parse n'importe quel CV (PDF, DOCX, TXT) avec Mistral AI.
-    """
-    from extractor import extract_text
-    from parser import parse_with_mistral
-    text = extract_text(input_path)
-    return parse_with_mistral(text)
+def extract_offer_text(offer_file=None, offer_text_input=""):
+    """Récupère le texte de l'offre depuis un fichier ou un champ texte."""
+    if offer_file is not None:
+        ext = os.path.splitext(offer_file.name)[1].lower()
+        tmp_path = save_temp(offer_file.getvalue(), ext)
+        from extractor import extract_text
+        return extract_text(tmp_path)
+    return offer_text_input.strip()
 
 
 def generate_output(cv, template_path: str) -> bytes:
@@ -62,343 +69,1006 @@ def generate_output(cv, template_path: str) -> bytes:
         return f.read()
 
 
-st.sidebar.title("📄 DDC Lab")
-st.sidebar.markdown("Convertissez n'importe quel CV au format INTM")
-st.sidebar.divider()
+# ═══════════════════════════════════════════════════════════════════
+# Barre latérale — Sélecteur de mode + Clé API
+# ═══════════════════════════════════════════════════════════════════
 
-uploaded_file = st.sidebar.file_uploader(
-    "**Étape 1 :** Importer le CV",
-    type=["docx", "pdf", "txt"],
-    help="DDC INTM, DOCX classique, PDF ou TXT"
+st.sidebar.title("📄 DDC Lab")
+
+mode = st.sidebar.radio(
+    "Mode",
+    ["🔄 Convertir CV", "🎯 Matcher CV ↔ Offre", "📊 Classer les CVs"],
+    key="app_mode",
 )
 
-is_intm = False
-needs_template = False
-template_file = None
+st.sidebar.divider()
 
-if uploaded_file:
-    ext = os.path.splitext(uploaded_file.name)[1].lower()
-    if ext == ".docx":
-        is_intm = is_intm_format(uploaded_file.getvalue())
-        if is_intm:
-            st.sidebar.success("✅ Document INTM détecté")
-        else:
-            needs_template = True
-            st.sidebar.info("ℹ️ DOCX classique — vous pouvez importer un modèle INTM ci-dessous")
-    elif ext in (".pdf", ".txt", ".md"):
-        needs_template = True
-        st.sidebar.info(f"ℹ️ Fichier {ext.upper()} — vous pouvez importer un modèle INTM ci-dessous")
+# Clé API (chargée depuis le fichier .env)
+api_key = os.environ.get("MISTRAL_API_KEY", "")
 
-if needs_template:
-    template_file = st.sidebar.file_uploader(
-        "**Étape 2 (optionnel) :** Importer un modèle INTM",
-        type=["docx"],
-        key="template_uploader",
-        help="Importez un DDC INTM existant pour appliquer le bon style. Si absent, le style par défaut sera utilisé."
+if mode in ["🎯 Matcher CV ↔ Offre", "📊 Classer les CVs"]:
+    if api_key:
+        st.sidebar.success("✅ Clé API chargée")
+    else:
+        st.sidebar.error("❌ Clé API manquante — ajoutez ANTHROPIC_API_KEY dans votre fichier .env")
+    st.sidebar.divider()
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MODE 1 : Convertir CV (flux existant — inchangé)
+# ═══════════════════════════════════════════════════════════════════
+
+if mode == "🔄 Convertir CV":
+    st.sidebar.markdown("Convertir n'importe quel CV au format INTM")
+    st.sidebar.divider()
+
+    uploaded_file = st.sidebar.file_uploader(
+        "**Étape 1 :** Téléverser le CV",
+        type=["docx", "pdf", "txt"],
+        help="DOCX INTM, DOCX classique, PDF ou TXT",
+        key="convert_cv_upload",
     )
-    if template_file:
-        st.sidebar.success("✅ Modèle chargé")
-    else:
-        st.sidebar.info("ℹ️ Sans modèle, le style par défaut sera appliqué")
 
+    is_intm = False
+    needs_template = False
+    template_file = None
 
-if not uploaded_file:
-    st.title("📄 DDC Lab")
-    st.markdown("""
-    **Convertissez n'importe quel CV en document Word au format INTM.**
+    if uploaded_file:
+        ext = os.path.splitext(uploaded_file.name)[1].lower()
+        if ext == ".docx":
+            is_intm = is_intm_format(uploaded_file.getvalue())
+            if is_intm:
+                st.sidebar.success("✅ Template INTM détecté")
+            else:
+                needs_template = True
+                st.sidebar.info("ℹ️ DOCX classique — téléversez un template ci-dessous")
+        elif ext in (".pdf", ".txt", ".md"):
+            needs_template = True
+            st.sidebar.info(f"ℹ️ Fichier {ext.upper()} — téléversez un template ci-dessous")
 
-    👈 Importez un fichier dans la barre latérale pour commencer.
-
-    **Formats acceptés :** DDC INTM, DOCX classique, PDF, TXT
-    """)
-    st.stop()
-
-
-ext = os.path.splitext(uploaded_file.name)[1].lower()
-input_path = save_temp(uploaded_file.getvalue(), ext)
-
-# Chemin du modèle : priorité au modèle importé, sinon fallback
-if is_intm:
-    template_path = input_path
-elif template_file:
-    template_path = save_temp(template_file.getvalue(), ".docx")
-else:
-    if ext == ".docx":
-        template_path = input_path
-    else:
-        default_template = os.path.join(os.path.dirname(__file__), "template_default.docx")
-        if os.path.exists(default_template):
-            template_path = default_template
-        else:
-            st.warning("⚠️ Aucun modèle INTM trouvé. Importez un modèle pour un rendu correct.")
-            st.info("Astuce : enregistrez un DDC INTM sous le nom 'template_default.docx' dans le dossier de l'application pour l'utiliser automatiquement.")
-            st.stop()
-
-try:
-    with st.spinner("🤖 Analyse du CV avec Mistral AI..." if not is_intm else "📄 Lecture du document INTM..."):
-        cv = parse_intm_docx(input_path) if is_intm else parse_text_input(input_path)
-    parse_mode = "intm" if is_intm else "mistral"
-except Exception as e:
-    st.error(f"❌ Erreur lors de l'analyse : {e}")
-    st.exception(e)
-    st.stop()
-
-
-file_key = f"{uploaded_file.name}_{uploaded_file.size}"
-if st.session_state.get("_file_key") != file_key:
-    st.session_state.cv = copy.deepcopy(cv)
-    st.session_state._file_key = file_key
-    st.session_state._template_path = template_path
-
-cv_edit = st.session_state.cv
-template_path = st.session_state._template_path
-
-
-tab_profile, tab_sections, tab_generate = st.tabs(["👤 Profil", "📋 Sections", "📥 Générer"])
-
-
-with tab_profile:
-    st.header("Profil")
-    st.caption(f"Analysé via {'le parseur INTM (styles)' if parse_mode == 'intm' else 'Mistral AI'}")
-    col1, col2 = st.columns(2)
-    with col1:
-        cv_edit.profile.name = st.text_input("Nom", value=cv_edit.profile.name)
-        cv_edit.profile.title = st.text_input("Titre / Poste", value=cv_edit.profile.title)
-    with col2:
-        cv_edit.profile.language = st.text_input("Langue", value=cv_edit.profile.language)
-        cv_edit.profile.years_experience = st.text_input(
-            "Années d'expérience", value=cv_edit.profile.years_experience
+    if needs_template:
+        template_file = st.sidebar.file_uploader(
+            "**Étape 2 :** Téléverser le template INTM",
+            type=["docx"],
+            key="template_uploader",
+            help="N'importe quel DOCX INTM existant pour le style",
         )
+        if template_file:
+            st.sidebar.success("✅ Template chargé")
+        else:
+            st.sidebar.warning("⚠️ Template requis pour générer le fichier")
 
+    if not uploaded_file:
+        st.title("📄 DDC Lab — Convertir")
+        st.markdown("""
+        **Convertir n'importe quel CV en document Word au format INTM.**
 
-with tab_sections:
-    st.header("Sections")
-    st.caption(f"{len(cv_edit.sections)} section(s)")
+        👈 Téléversez un fichier dans la barre latérale pour commencer.
 
-    sections_to_delete = []
+        **Formats supportés :** DOCX INTM, DOCX classique, PDF, TXT
+        """)
+        st.stop()
 
-    for i, section in enumerate(cv_edit.sections):
-        parts = []
-        if section.table_rows:
-            parts.append(f"{len(section.table_rows)} ligne(s)")
-        if section.bullet_items:
-            parts.append(f"{len(section.bullet_items)} point(s)")
-        if section.experience_blocks:
-            parts.append(f"{len(section.experience_blocks)} expérience(s)")
-        summary = ", ".join(parts) if parts else "vide"
+    if needs_template and not template_file:
+        st.title("📄 DDC Lab — Convertir")
+        st.info("👈 Téléversez un template DOCX INTM dans la barre latérale pour continuer.")
+        st.markdown("N'importe quel DDC INTM peut servir de template — peu importe à qui il appartient.")
+        st.stop()
 
-        with st.expander(f"**{section.header}** — {summary}", expanded=False):
+    # Parsing
+    ext = os.path.splitext(uploaded_file.name)[1].lower()
+    input_path = save_temp(uploaded_file.getvalue(), ext)
+    template_path = input_path if is_intm else save_temp(template_file.getvalue(), ".docx")
 
-            c_h, c_d = st.columns([5, 1])
-            with c_h:
-                section.header = st.text_input("Nom de la section", value=section.header, key=f"h_{i}")
-            with c_d:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("🗑️ Supprimer", key=f"ds_{i}"):
-                    sections_to_delete.append(i)
+    try:
+        if is_intm:
+            from parser_v2 import parse_docx as _parse_docx
+            cv = _parse_docx(input_path)
+        else:
+            from parser import parse_file_with_mistral
+            cv = parse_file_with_mistral(input_path)
+        parse_mode = "intm" if is_intm else "text"
+    except Exception as e:
+        st.error(f"❌ Erreur de parsing : {e}")
+        st.exception(e)
+        st.stop()
 
-            # ── TABLEAU ──
+    file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+    if st.session_state.get("_file_key") != file_key:
+        st.session_state.cv = copy.deepcopy(cv)
+        st.session_state._file_key = file_key
+        st.session_state._template_path = template_path
+
+    cv_edit = st.session_state.cv
+    template_path = st.session_state._template_path
+
+    tab_profile, tab_sections, tab_generate = st.tabs(
+        ["👤 Profil", "📋 Sections", "📥 Générer"]
+    )
+
+    with tab_profile:
+        st.header("Profil")
+        st.caption(
+            f"Parsé via {'le parser INTM (basé sur les styles)' if parse_mode == 'intm' else 'le parser texte'}"
+        )
+        col1, col2 = st.columns(2)
+        with col1:
+            cv_edit.profile.name = st.text_input("Nom", value=cv_edit.profile.name)
+            cv_edit.profile.title = st.text_input("Titre / Rôle", value=cv_edit.profile.title)
+        with col2:
+            cv_edit.profile.language = st.text_input("Langue", value=cv_edit.profile.language)
+            cv_edit.profile.years_experience = st.text_input(
+                "Années d'expérience", value=cv_edit.profile.years_experience
+            )
+
+    with tab_sections:
+        st.header("Sections")
+        st.caption(f"{len(cv_edit.sections)} sections")
+
+        sections_to_delete = []
+
+        for i, section in enumerate(cv_edit.sections):
+            parts = []
             if section.table_rows:
-                st.markdown("##### Lignes du tableau")
-                rows_del = []
-                for j, row in enumerate(section.table_rows):
-                    c1, c2, c3 = st.columns([3, 5, 1])
-                    with c1:
-                        row.left = st.text_input("G", value=row.left, key=f"tl_{i}_{j}", label_visibility="collapsed")
-                    with c2:
-                        row.right = st.text_input("D", value=row.right, key=f"tr_{i}_{j}", label_visibility="collapsed")
-                    with c3:
-                        if st.button("✕", key=f"dtr_{i}_{j}"):
-                            rows_del.append(j)
-                for j in sorted(rows_del, reverse=True):
-                    section.table_rows.pop(j)
-                if st.button("➕ Ajouter une ligne", key=f"atr_{i}"):
-                    from parser_v2 import TableRow
-                    section.table_rows.append(TableRow(left="", right=""))
-                    st.rerun()
-
-            # ── POINTS ──
+                parts.append(f"{len(section.table_rows)} lignes")
             if section.bullet_items:
-                st.markdown("##### Points")
-                bul_del = []
-                for j, item in enumerate(section.bullet_items):
-                    c1, c2 = st.columns([9, 1])
-                    with c1:
-                        section.bullet_items[j] = st.text_input("P", value=item, key=f"bl_{i}_{j}", label_visibility="collapsed")
-                    with c2:
-                        if st.button("✕", key=f"dbl_{i}_{j}"):
-                            bul_del.append(j)
-                for j in sorted(bul_del, reverse=True):
-                    section.bullet_items.pop(j)
-                if st.button("➕ Ajouter un point", key=f"abl_{i}"):
-                    section.bullet_items.append("")
-                    st.rerun()
-
-            # ── EXPÉRIENCES ──
+                parts.append(f"{len(section.bullet_items)} puces")
             if section.experience_blocks:
-                for k, exp in enumerate(section.experience_blocks):
-                    st.divider()
+                parts.append(f"{len(section.experience_blocks)} entrées")
+            summary = ", ".join(parts) if parts else "vide"
 
-                    c_t, c_de = st.columns([8, 1])
-                    with c_t:
-                        exp.title_line = st.text_input("Titre", value=exp.title_line, key=f"et_{i}_{k}")
-                    with c_de:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("🗑️", key=f"dex_{i}_{k}"):
-                            section.experience_blocks.pop(k)
-                            st.rerun()
+            with st.expander(f"**{section.header}** — {summary}", expanded=False):
+                c_h, c_d = st.columns([5, 1])
+                with c_h:
+                    section.header = st.text_input(
+                        "Nom de la section", value=section.header, key=f"h_{i}"
+                    )
+                with c_d:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("🗑️ Supprimer", key=f"ds_{i}"):
+                        sections_to_delete.append(i)
 
-                    if exp.poste:
-                        exp.poste = st.text_input("Poste", value=exp.poste, key=f"ep_{i}_{k}")
-
-                    for s_idx, (sub_header, items) in enumerate(exp.sub_sections):
-                        st.markdown(f"**{sub_header}**" if sub_header else "**Contenu :**")
-
-                        items_del = []
-                        for ii, item in enumerate(items):
-                            c1, c2 = st.columns([9, 1])
-                            with c1:
-                                items[ii] = st.text_input("I", value=item, key=f"ei_{i}_{k}_{s_idx}_{ii}", label_visibility="collapsed")
-                            with c2:
-                                if st.button("✕", key=f"dei_{i}_{k}_{s_idx}_{ii}"):
-                                    items_del.append(ii)
-                        for idx in sorted(items_del, reverse=True):
-                            items.pop(idx)
-
-                        if st.button("➕ Ajouter un élément", key=f"aei_{i}_{k}_{s_idx}"):
-                            items.append("")
-                            st.rerun()
-
-                    if st.button("➕ Ajouter une sous-section", key=f"ass_{i}_{k}"):
-                        exp.sub_sections.append(("ROLE :", [""]))
+                if section.table_rows:
+                    st.markdown("##### Lignes du tableau")
+                    rows_del = []
+                    for j, row in enumerate(section.table_rows):
+                        c1, c2, c3 = st.columns([3, 5, 1])
+                        with c1:
+                            row.left = st.text_input(
+                                "G", value=row.left, key=f"tl_{i}_{j}", label_visibility="collapsed"
+                            )
+                        with c2:
+                            row.right = st.text_input(
+                                "D", value=row.right, key=f"tr_{i}_{j}", label_visibility="collapsed"
+                            )
+                        with c3:
+                            if st.button("✕", key=f"dtr_{i}_{j}"):
+                                rows_del.append(j)
+                    for j in sorted(rows_del, reverse=True):
+                        section.table_rows.pop(j)
+                    if st.button("➕ Ajouter une ligne", key=f"atr_{i}"):
+                        from parser_v2 import TableRow
+                        section.table_rows.append(TableRow(left="", right=""))
                         st.rerun()
 
-                st.divider()
-                if st.button("➕ Ajouter une expérience", key=f"aex_{i}"):
-                    from parser_v2 import ExperienceBlock
-                    section.experience_blocks.append(
+                if section.bullet_items:
+                    st.markdown("##### Puces")
+                    bul_del = []
+                    for j, item in enumerate(section.bullet_items):
+                        c1, c2 = st.columns([9, 1])
+                        with c1:
+                            section.bullet_items[j] = st.text_input(
+                                "P", value=item, key=f"bl_{i}_{j}", label_visibility="collapsed"
+                            )
+                        with c2:
+                            if st.button("✕", key=f"dbl_{i}_{j}"):
+                                bul_del.append(j)
+                    for j in sorted(bul_del, reverse=True):
+                        section.bullet_items.pop(j)
+                    if st.button("➕ Ajouter une puce", key=f"abl_{i}"):
+                        section.bullet_items.append("")
+                        st.rerun()
+
+                if section.experience_blocks:
+                    for k, exp in enumerate(section.experience_blocks):
+                        st.divider()
+                        c_t, c_de = st.columns([8, 1])
+                        with c_t:
+                            exp.title_line = st.text_input(
+                                "Titre", value=exp.title_line, key=f"et_{i}_{k}"
+                            )
+                        with c_de:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            if st.button("🗑️", key=f"dex_{i}_{k}"):
+                                section.experience_blocks.pop(k)
+                                st.rerun()
+
+                        if exp.poste:
+                            exp.poste = st.text_input(
+                                "Poste", value=exp.poste, key=f"ep_{i}_{k}"
+                            )
+
+                        for s_idx, (sub_header, items) in enumerate(exp.sub_sections):
+                            st.markdown(
+                                f"**{sub_header}**" if sub_header else "**Contenu :**"
+                            )
+                            items_del = []
+                            for ii, item in enumerate(items):
+                                c1, c2 = st.columns([9, 1])
+                                with c1:
+                                    items[ii] = st.text_input(
+                                        "E",
+                                        value=item,
+                                        key=f"ei_{i}_{k}_{s_idx}_{ii}",
+                                        label_visibility="collapsed",
+                                    )
+                                with c2:
+                                    if st.button("✕", key=f"dei_{i}_{k}_{s_idx}_{ii}"):
+                                        items_del.append(ii)
+                            for idx in sorted(items_del, reverse=True):
+                                items.pop(idx)
+                            if st.button(f"➕ Ajouter un élément", key=f"aei_{i}_{k}_{s_idx}"):
+                                items.append("")
+                                st.rerun()
+
+                        if st.button("➕ Ajouter une sous-section", key=f"ass_{i}_{k}"):
+                            exp.sub_sections.append(("ROLE :", [""]))
+                            st.rerun()
+
+                    st.divider()
+                    if st.button("➕ Ajouter une expérience", key=f"aex_{i}"):
+                        from parser_v2 import ExperienceBlock
+                        section.experience_blocks.append(
+                            ExperienceBlock(
+                                title_line="",
+                                poste="",
+                                sub_sections=[
+                                    ("ROLE :", [""]),
+                                    ("Environnement technique :", [""]),
+                                ],
+                            )
+                        )
+                        st.rerun()
+
+                if (
+                    not section.table_rows
+                    and not section.bullet_items
+                    and not section.experience_blocks
+                ):
+                    st.info("Section vide — choisissez un type de contenu :")
+                    c1, c2, c3 = st.columns(3)
+                    with c1:
+                        if st.button("➕ Tableau", key=f"aet_{i}"):
+                            from parser_v2 import TableRow
+                            section.content_type = "table"
+                            section.table_rows.append(TableRow(left="", right=""))
+                            st.rerun()
+                    with c2:
+                        if st.button("➕ Puces", key=f"aeb_{i}"):
+                            section.content_type = "bullets"
+                            section.bullet_items.append("")
+                            st.rerun()
+                    with c3:
+                        if st.button("➕ Expériences", key=f"aee_{i}"):
+                            from parser_v2 import ExperienceBlock
+                            section.content_type = "experiences"
+                            section.experience_blocks.append(
+                                ExperienceBlock(
+                                    title_line="",
+                                    poste="",
+                                    sub_sections=[
+                                        ("ROLE :", [""]),
+                                        ("Environnement technique :", [""]),
+                                    ],
+                                )
+                            )
+                            st.rerun()
+
+        if sections_to_delete:
+            for i in sorted(sections_to_delete, reverse=True):
+                cv_edit.sections.pop(i)
+            st.rerun()
+
+        st.divider()
+        st.subheader("➕ Ajouter une nouvelle section")
+        c_name, c_type, c_pos = st.columns([3, 2, 2])
+        with c_name:
+            new_name = st.text_input("Nom de la section", value="", key="new_sec_name")
+        with c_type:
+            new_type = st.selectbox(
+                "Type",
+                ["Liste à puces", "Tableau (2 colonnes)", "Expériences"],
+                key="new_sec_type",
+            )
+        with c_pos:
+            positions = ["À la fin"] + [
+                f"Avant : {s.header}" for s in cv_edit.sections
+            ]
+            new_pos = st.selectbox("Position", positions, key="new_sec_pos")
+
+        if st.button("➕ Ajouter la section", key="add_new_sec", use_container_width=True):
+            if not new_name.strip():
+                st.warning("Entrez un nom de section.")
+            else:
+                from parser_v2 import Section, TableRow, ExperienceBlock
+
+                ns = Section(header=new_name.strip())
+                if new_type == "Liste à puces":
+                    ns.content_type = "bullets"
+                    ns.bullet_items = [""]
+                elif new_type == "Tableau (2 colonnes)":
+                    ns.content_type = "table"
+                    ns.table_rows = [TableRow(left="", right="")]
+                else:
+                    ns.content_type = "experiences"
+                    ns.experience_blocks = [
                         ExperienceBlock(
                             title_line="",
                             poste="",
-                            sub_sections=[("ROLE :", [""]), ("Environnement technique :", [""])],
+                            sub_sections=[
+                                ("ROLE :", [""]),
+                                ("Environnement technique :", [""]),
+                            ],
                         )
+                    ]
+
+                if new_pos == "À la fin":
+                    cv_edit.sections.append(ns)
+                else:
+                    target = new_pos.replace("Avant : ", "")
+                    idx = next(
+                        (
+                            j
+                            for j, s in enumerate(cv_edit.sections)
+                            if s.header == target
+                        ),
+                        len(cv_edit.sections),
                     )
-                    st.rerun()
+                    cv_edit.sections.insert(idx, ns)
+                st.rerun()
 
-            # ── SECTION VIDE ──
-            if not section.table_rows and not section.bullet_items and not section.experience_blocks:
-                st.info("Section vide — choisissez un type de contenu :")
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    if st.button("➕ Tableau", key=f"aet_{i}"):
-                        from parser_v2 import TableRow
-                        section.content_type = "table"
-                        section.table_rows.append(TableRow(left="", right=""))
-                        st.rerun()
-                with c2:
-                    if st.button("➕ Points", key=f"aeb_{i}"):
-                        section.content_type = "bullets"
-                        section.bullet_items.append("")
-                        st.rerun()
-                with c3:
-                    if st.button("➕ Expériences", key=f"aee_{i}"):
-                        from parser_v2 import ExperienceBlock
-                        section.content_type = "experiences"
-                        section.experience_blocks.append(
-                            ExperienceBlock(title_line="", poste="",
-                                           sub_sections=[("ROLE :", [""]), ("Environnement technique :", [""])])
-                        )
-                        st.rerun()
+    with tab_generate:
+        st.header("Générer le DOCX")
 
-    if sections_to_delete:
-        for i in sorted(sections_to_delete, reverse=True):
-            cv_edit.sections.pop(i)
-        st.rerun()
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(f"**Nom :** {cv_edit.profile.name}")
+            st.markdown(f"**Titre :** {cv_edit.profile.title}")
+        with col2:
+            st.markdown(f"**Langue :** {cv_edit.profile.language}")
+            st.markdown(f"**Expérience :** {cv_edit.profile.years_experience}")
 
-    # ── AJOUTER UNE SECTION ──
-    st.divider()
-    st.subheader("➕ Ajouter une section")
+        st.divider()
+        st.markdown(f"**{len(cv_edit.sections)} sections :**")
+        for s in cv_edit.sections:
+            icon = (
+                "📊"
+                if "table" in s.content_type
+                else "📝" if s.content_type == "bullets" else "💼"
+            )
+            count = (
+                len(s.table_rows) + len(s.bullet_items) + len(s.experience_blocks)
+            )
+            st.markdown(f"  {icon} **{s.header}** ({count} éléments)")
 
-    c_name, c_type, c_pos = st.columns([3, 2, 2])
-    with c_name:
-        new_name = st.text_input("Nom de la section", value="", key="new_sec_name")
-    with c_type:
-        new_type = st.selectbox("Type", ["Liste de points", "Tableau (2 colonnes)", "Expériences"], key="new_sec_type")
-    with c_pos:
-        positions = ["À la fin"] + [f"Avant : {s.header}" for s in cv_edit.sections]
-        new_pos = st.selectbox("Position", positions, key="new_sec_pos")
+        st.divider()
 
-    if st.button("➕ Ajouter la section", key="add_new_sec", use_container_width=True):
-        if not new_name.strip():
-            st.warning("Veuillez saisir un nom de section.")
-        else:
-            from parser_v2 import Section, TableRow, ExperienceBlock
-            ns = Section(header=new_name.strip())
-            if new_type == "Liste de points":
-                ns.content_type = "bullets"
-                ns.bullet_items = [""]
-            elif new_type == "Tableau (2 colonnes)":
-                ns.content_type = "table"
-                ns.table_rows = [TableRow(left="", right="")]
-            else:
-                ns.content_type = "experiences"
-                ns.experience_blocks = [
-                    ExperienceBlock(title_line="", poste="",
-                                   sub_sections=[("ROLE :", [""]), ("Environnement technique :", [""])])
-                ]
+        base_name = os.path.splitext(uploaded_file.name)[0]
+        output_name = st.text_input(
+            "📁 Nom du fichier de sortie",
+            value=f"INTM_DDC_{cv_edit.profile.name.replace(' ', '_')}",
+            help="L'extension .docx sera ajoutée automatiquement",
+        )
+        if not output_name.strip():
+            output_name = f"{base_name}_INTM"
+        if not output_name.endswith(".docx"):
+            output_name = f"{output_name}.docx"
 
-            if new_pos == "À la fin":
-                cv_edit.sections.append(ns)
-            else:
-                target = new_pos.replace("Avant : ", "")
-                idx = next((j for j, s in enumerate(cv_edit.sections) if s.header == target), len(cv_edit.sections))
-                cv_edit.sections.insert(idx, ns)
-            st.rerun()
+        if st.button("🚀 Générer le DOCX", type="primary", use_container_width=True):
+            with st.spinner("Génération en cours..."):
+                try:
+                    docx_bytes = generate_output(cv_edit, template_path)
+                    st.success("✅ Généré avec succès !")
+                    st.download_button(
+                        label=f"📥 Télécharger {output_name}",
+                        data=docx_bytes,
+                        file_name=output_name,
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                    )
+                except Exception as e:
+                    st.error(f"❌ Erreur : {e}")
+                    st.exception(e)
 
 
-with tab_generate:
-    st.header("Générer le document")
+# ═══════════════════════════════════════════════════════════════════
+# Helpers UI partagés pour les résultats de matching
+# ═══════════════════════════════════════════════════════════════════
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(f"**Nom :** {cv_edit.profile.name}")
-        st.markdown(f"**Titre :** {cv_edit.profile.title}")
-    with col2:
-        st.markdown(f"**Langue :** {cv_edit.profile.language}")
-        st.markdown(f"**Expérience :** {cv_edit.profile.years_experience}")
+def _score_color(score: int) -> str:
+    if score >= 85:
+        return "🟢"
+    elif score >= 70:
+        return "🔵"
+    elif score >= 50:
+        return "🟡"
+    elif score >= 30:
+        return "🟠"
+    return "🔴"
 
-    st.divider()
-    st.markdown(f"**{len(cv_edit.sections)} section(s) :**")
-    for s in cv_edit.sections:
-        icon = "📊" if "table" in s.content_type else "📝" if s.content_type == "bullets" else "💼"
-        count = len(s.table_rows) + len(s.bullet_items) + len(s.experience_blocks)
-        st.markdown(f"  {icon} **{s.header}** ({count} élément(s))")
 
-    st.divider()
+def _score_label(score: int) -> str:
+    if score >= 85:
+        return "Excellent"
+    elif score >= 70:
+        return "Bon"
+    elif score >= 50:
+        return "Partiel"
+    elif score >= 30:
+        return "Faible"
+    return "Insuffisant"
 
-    base_name = os.path.splitext(uploaded_file.name)[0]
-    output_name = st.text_input(
-        "📁 Nom du fichier de sortie",
-        value=f"INTM_DDC_{cv_edit.profile.name.replace(' ', '_')}",
-        help="L'extension .docx sera ajoutée automatiquement",
+
+def _render_score_bar(label: str, score: int):
+    """Affiche une barre de progression colorée avec un label."""
+    color = (
+        "#1D9E75" if score >= 85
+        else "#378ADD" if score >= 70
+        else "#EF9F27" if score >= 50
+        else "#D85A30" if score >= 30
+        else "#E24B4A"
     )
-    if not output_name.strip():
-        output_name = f"{base_name}_INTM"
-    if not output_name.endswith(".docx"):
-        output_name = f"{output_name}.docx"
+    st.markdown(
+        f"""
+        <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                <span style="font-size: 13px; font-weight: 500;">{label}</span>
+                <span style="font-size: 13px; font-weight: 600;">{score}/100</span>
+            </div>
+            <div style="background: #e0e0e0; border-radius: 6px; height: 10px; overflow: hidden;">
+                <div style="background: {color}; width: {score}%; height: 100%; border-radius: 6px;
+                            transition: width 0.5s ease;"></div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    if st.button("🚀 Générer le DOCX", type="primary", use_container_width=True):
-        with st.spinner("Génération en cours..."):
+
+def _render_match_result(result, expanded=True):
+    """Affiche un MatchResult complet dans l'UI."""
+    score = result.overall_score
+    emoji = _score_color(score)
+    label = _score_label(score)
+
+    with st.expander(
+        f"{emoji} **{result.candidate_name}** — {score}/100 ({label})",
+        expanded=expanded,
+    ):
+        # Résumé
+        st.markdown(f"*{result.summary}*")
+        st.divider()
+
+        # Scores détaillés
+        if result.detail_scores:
+            st.markdown("**Détail des scores**")
+            detail_labels = {
+                "skills": "🛠️ Compétences",
+                "experience": "💼 Expérience",
+                "domain": "🏢 Domaine",
+                "education": "🎓 Formation",
+                "languages": "🌐 Langues",
+            }
+            for key, lbl in detail_labels.items():
+                val = result.detail_scores.get(key, 0)
+                _render_score_bar(lbl, val)
+            st.divider()
+
+        # Compétences correspondantes vs manquantes
+        col1, col2 = st.columns(2)
+        with col1:
+            if result.matched_skills:
+                st.markdown("**✅ Compétences correspondantes**")
+                for s in result.matched_skills:
+                    st.markdown(f"- {s}")
+        with col2:
+            if result.missing_skills:
+                st.markdown("**❌ Compétences manquantes**")
+                for s in result.missing_skills:
+                    st.markdown(f"- {s}")
+
+        # Points forts & Risques
+        col3, col4 = st.columns(2)
+        with col3:
+            if result.strengths:
+                st.markdown("**💪 Points forts**")
+                for s in result.strengths:
+                    st.markdown(f"- {s}")
+        with col4:
+            if result.risks:
+                st.markdown("**⚠️ Risques**")
+                for r in result.risks:
+                    st.markdown(f"- {r}")
+
+        # Expérience correspondante
+        col5, col6 = st.columns(2)
+        with col5:
+            if result.matched_experience:
+                st.markdown("**✅ Expérience pertinente**")
+                for e in result.matched_experience:
+                    st.markdown(f"- {e}")
+        with col6:
+            if result.experience_gaps:
+                st.markdown("**❌ Lacunes d'expérience**")
+                for g in result.experience_gaps:
+                    st.markdown(f"- {g}")
+
+        # Suggestions d'adaptation
+        if result.tailoring_suggestions:
+            st.divider()
+            st.markdown("**💡 Suggestions d'adaptation**")
+            for i, s in enumerate(result.tailoring_suggestions, 1):
+                st.markdown(f"{i}. {s}")
+
+
+def _render_offer_input(key_prefix: str):
+    """Affiche l'entrée de l'offre (téléversement OU copier-coller) et retourne le texte."""
+    offer_method = st.radio(
+        "Comment fournir l'offre d'emploi :",
+        ["📄 Téléverser un fichier", "📝 Coller le texte"],
+        horizontal=True,
+        key=f"{key_prefix}_offer_method",
+    )
+
+    offer_text = ""
+    if offer_method == "📄 Téléverser un fichier":
+        offer_file = st.file_uploader(
+            "Téléverser l'offre d'emploi",
+            type=["pdf", "docx", "txt"],
+            key=f"{key_prefix}_offer_file",
+            help="PDF, DOCX ou TXT",
+        )
+        if offer_file:
             try:
-                docx_bytes = generate_output(cv_edit, template_path)
-                st.success("✅ Document généré avec succès !")
-                st.download_button(
-                    label=f"📥 Télécharger {output_name}",
-                    data=docx_bytes,
-                    file_name=output_name,
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True,
-                )
+                offer_text = extract_offer_text(offer_file=offer_file)
+                st.success(f"✅ {len(offer_text)} caractères extraits de l'offre")
             except Exception as e:
-                st.error(f"❌ Erreur lors de la génération : {e}")
+                st.error(f"❌ Erreur de lecture de l'offre : {e}")
+    else:
+        offer_text = st.text_area(
+            "Collez l'offre d'emploi ici",
+            height=250,
+            key=f"{key_prefix}_offer_text",
+            placeholder="Collez la description complète du poste...",
+        )
+
+    return offer_text
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MODE 2 : Matcher un CV ↔ une Offre
+# ═══════════════════════════════════════════════════════════════════
+
+if mode == "🎯 Matcher CV ↔ Offre":
+
+    uploaded_cv = st.sidebar.file_uploader(
+        "**Téléverser le CV**",
+        type=["docx", "pdf", "txt"],
+        key="match_cv_upload",
+        help="Le CV à comparer avec l'offre",
+    )
+
+    match_template_file = st.sidebar.file_uploader(
+        "**Template INTM** (pour adaptation)",
+        type=["docx"],
+        key="match_template_upload",
+        help="Template DOCX INTM pour générer le CV adapté",
+    )
+    if match_template_file:
+        st.sidebar.success("✅ Template chargé")
+    else:
+        st.sidebar.caption("ℹ️ Template optionnel — requis pour générer le CV adapté")
+
+    if not uploaded_cv:
+        st.title("🎯 Matcher CV ↔ Offre")
+        st.markdown("""
+        **Évaluez la compatibilité d'un CV avec une offre d'emploi.**
+
+        👈 Téléversez un CV dans la barre latérale, puis fournissez l'offre ci-dessous.
+
+        L'IA analysera la compatibilité et vous donnera :
+        - Un score global (0–100)
+        - Un détail par compétences, expérience, domaine, formation, langues
+        - Les compétences correspondantes et manquantes
+        - Les points forts, risques et suggestions d'adaptation
+        """)
+        st.stop()
+
+    # Parsing du CV
+    try:
+        cv, parse_mode = parse_cv_file(uploaded_cv.getvalue(), uploaded_cv.name)
+        st.sidebar.success(f"✅ CV parsé : **{cv.profile.name}**")
+    except Exception as e:
+        st.error(f"❌ Erreur de parsing du CV : {e}")
+        st.exception(e)
+        st.stop()
+
+    st.title("🎯 Matcher CV ↔ Offre")
+    st.caption(f"CV : **{cv.profile.name}** — {cv.profile.title}")
+
+    # Entrée de l'offre
+    st.subheader("Offre d'emploi")
+    offer_text = _render_offer_input("match")
+
+    # Lancer le matching
+    st.divider()
+
+    if not offer_text:
+        st.info("👆 Fournissez une offre d'emploi ci-dessus pour lancer le matching.")
+        st.stop()
+
+    if not api_key:
+        st.warning("⚠️ Entrez votre clé API Anthropic dans la barre latérale pour lancer le matching.")
+        st.stop()
+
+    if st.button("🚀 Lancer le matching", type="primary", use_container_width=True):
+        with st.spinner("🔍 Analyse de la compatibilité..."):
+            try:
+                from matcher import match_cv
+                result = match_cv(cv, offer_text, api_key)
+                st.session_state.match_result = result
+            except Exception as e:
+                st.error(f"❌ Erreur de matching : {e}")
                 st.exception(e)
+
+    if "match_result" in st.session_state:
+        st.divider()
+        _render_match_result(st.session_state.match_result, expanded=True)
+
+        # ── Adapter le CV pour l'offre ──
+        st.divider()
+        st.subheader("✨ Adapter le CV pour l'offre")
+        st.markdown(
+            "L'IA va **reformuler et réorganiser** le contenu du CV pour maximiser "
+            "la compatibilité avec l'offre. **Aucune compétence ni expérience ne sera inventée.**"
+        )
+
+        # Déterminer le template : template uploadé, ou le CV lui-même s'il est INTM
+        _match_template_path = None
+        if match_template_file:
+            _match_template_path = save_temp(match_template_file.getvalue(), ".docx")
+        else:
+            ext_cv = os.path.splitext(uploaded_cv.name)[1].lower()
+            if ext_cv == ".docx" and is_intm_format(uploaded_cv.getvalue()):
+                _match_template_path = save_temp(uploaded_cv.getvalue(), ".docx")
+
+        if not _match_template_path:
+            st.warning(
+                "⚠️ Pour générer le CV adapté en DOCX, téléversez un **template INTM** "
+                "dans la barre latérale."
+            )
+
+        col_adapt, col_dl = st.columns([1, 1])
+
+        with col_adapt:
+            adapt_disabled = not _match_template_path
+            if st.button(
+                "🎯 Adapter le CV",
+                type="primary",
+                use_container_width=True,
+                disabled=adapt_disabled,
+            ):
+                with st.spinner("✨ Adaptation du CV en cours..."):
+                    try:
+                        from tailor import tailor_cv
+
+                        # Construire un résumé du matching pour le contexte
+                        mr = st.session_state.match_result
+                        match_summary_parts = [f"Score global : {mr.overall_score}/100"]
+                        if mr.summary:
+                            match_summary_parts.append(f"Résumé : {mr.summary}")
+                        if mr.matched_skills:
+                            match_summary_parts.append(
+                                f"Compétences correspondantes : {', '.join(mr.matched_skills)}"
+                            )
+                        if mr.missing_skills:
+                            match_summary_parts.append(
+                                f"Compétences manquantes : {', '.join(mr.missing_skills)}"
+                            )
+                        if mr.tailoring_suggestions:
+                            match_summary_parts.append(
+                                "Suggestions : " + " | ".join(mr.tailoring_suggestions)
+                            )
+                        match_summary_text = "\n".join(match_summary_parts)
+
+                        tailored = tailor_cv(
+                            cv, offer_text, api_key,
+                            match_summary=match_summary_text,
+                        )
+                        st.session_state.tailored_cv = tailored
+                        st.session_state._match_template_path = _match_template_path
+                        st.success("✅ CV adapté avec succès !")
+                    except Exception as e:
+                        st.error(f"❌ Erreur d'adaptation : {e}")
+                        st.exception(e)
+
+        # Afficher le téléchargement si le CV adapté est prêt
+        if "tailored_cv" in st.session_state and st.session_state.get("_match_template_path"):
+            tailored = st.session_state.tailored_cv
+            tpl = st.session_state._match_template_path
+
+            with col_dl:
+                try:
+                    tailored_bytes = generate_output(tailored, tpl)
+                    out_name = f"CV_Adapté_{tailored.profile.name.replace(' ', '_')}.docx"
+                    st.download_button(
+                        label=f"📥 Télécharger {out_name}",
+                        data=tailored_bytes,
+                        file_name=out_name,
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                    )
+                except Exception as e:
+                    st.error(f"❌ Erreur de génération DOCX : {e}")
+
+            # Aperçu du CV adapté avec surlignage des modifications
+            st.divider()
+            st.subheader("📋 Aperçu du CV adapté")
+            st.caption("Les éléments modifiés sont surlignés en 🟡 jaune.")
+
+            def _hl(text: str) -> str:
+                """Wrap text in a yellow highlight span."""
+                return f'<span style="background-color: #FFF3CD; padding: 2px 4px; border-radius: 3px;">{text}</span>'
+
+            def _render_text(new: str, old: str) -> str:
+                """Return highlighted HTML if changed, plain text otherwise."""
+                if new.strip() != old.strip():
+                    return _hl(new)
+                return new
+
+            # --- Construire un index du CV original pour comparaison ---
+            orig_sections = {}
+            for s in cv.sections:
+                orig_sections[s.header.upper().strip()] = s
+
+            with st.expander("👤 Profil adapté", expanded=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"**Nom :** {tailored.profile.name}", unsafe_allow_html=True)
+                    title_html = _render_text(tailored.profile.title, cv.profile.title)
+                    st.markdown(f"**Titre :** {title_html}", unsafe_allow_html=True)
+                with col2:
+                    st.markdown(f"**Langue :** {tailored.profile.language}", unsafe_allow_html=True)
+                    st.markdown(f"**Expérience :** {tailored.profile.years_experience}", unsafe_allow_html=True)
+
+                if tailored.profile.title != cv.profile.title:
+                    st.info(
+                        f"💡 Titre modifié : ~~{cv.profile.title}~~ → **{tailored.profile.title}**"
+                    )
+
+            for sec in tailored.sections:
+                parts = []
+                if sec.table_rows:
+                    parts.append(f"{len(sec.table_rows)} lignes")
+                if sec.bullet_items:
+                    parts.append(f"{len(sec.bullet_items)} puces")
+                if sec.experience_blocks:
+                    parts.append(f"{len(sec.experience_blocks)} entrées")
+                sec_summary = ", ".join(parts) if parts else "vide"
+
+                # Trouver la section originale correspondante
+                orig_sec = orig_sections.get(sec.header.upper().strip())
+
+                with st.expander(f"**{sec.header}** — {sec_summary}", expanded=False):
+
+                    # --- Table rows ---
+                    if sec.table_rows:
+                        orig_rows = {}
+                        if orig_sec and orig_sec.table_rows:
+                            for r in orig_sec.table_rows:
+                                orig_rows[r.left.strip()] = r.right.strip()
+
+                        for row in sec.table_rows:
+                            orig_right = orig_rows.get(row.left.strip(), None)
+                            if orig_right is not None and orig_right != row.right.strip():
+                                st.markdown(
+                                    f"**{row.left}** — {_hl(row.right)}",
+                                    unsafe_allow_html=True,
+                                )
+                            elif orig_right is None and orig_sec and orig_sec.table_rows:
+                                # New row not in original
+                                st.markdown(
+                                    f"{_hl(f'<b>{row.left}</b> — {row.right}')}",
+                                    unsafe_allow_html=True,
+                                )
+                            else:
+                                st.markdown(f"**{row.left}** — {row.right}")
+
+                    # --- Bullet items ---
+                    if sec.bullet_items:
+                        orig_bullets = set()
+                        if orig_sec and orig_sec.bullet_items:
+                            orig_bullets = {b.strip() for b in orig_sec.bullet_items}
+
+                        for item in sec.bullet_items:
+                            if item.strip() not in orig_bullets:
+                                st.markdown(f"• {_hl(item)}", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"• {item}")
+
+                    # --- Experience blocks ---
+                    if sec.experience_blocks:
+                        orig_exps = {}
+                        if orig_sec and orig_sec.experience_blocks:
+                            for oe in orig_sec.experience_blocks:
+                                key = oe.title_line.strip()
+                                orig_exps[key] = oe
+
+                        for exp_block in sec.experience_blocks:
+                            st.markdown(f"**{exp_block.title_line}**")
+
+                            # Poste
+                            orig_exp = orig_exps.get(exp_block.title_line.strip())
+                            if exp_block.poste:
+                                orig_poste = orig_exp.poste.strip() if orig_exp else ""
+                                if exp_block.poste.strip() != orig_poste:
+                                    st.markdown(
+                                        f"{_hl(exp_block.poste)}",
+                                        unsafe_allow_html=True,
+                                    )
+                                else:
+                                    st.caption(exp_block.poste)
+
+                            # Sub-sections
+                            orig_sub_items = {}
+                            if orig_exp:
+                                for sh, sitems in orig_exp.sub_sections:
+                                    orig_sub_items[sh.strip()] = {
+                                        it.strip() for it in sitems
+                                    }
+
+                            for sub_h, items in exp_block.sub_sections:
+                                if sub_h:
+                                    st.markdown(f"*{sub_h}*")
+
+                                orig_items_set = orig_sub_items.get(
+                                    sub_h.strip(), set()
+                                )
+                                for item in items:
+                                    if item.strip() not in orig_items_set:
+                                        st.markdown(
+                                            f"&nbsp;&nbsp;• {_hl(item)}",
+                                            unsafe_allow_html=True,
+                                        )
+                                    else:
+                                        st.markdown(f"  • {item}")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MODE 3 : Classer plusieurs CVs face à une offre
+# ═══════════════════════════════════════════════════════════════════
+
+if mode == "📊 Classer les CVs":
+
+    uploaded_cvs = st.sidebar.file_uploader(
+        "**Téléverser les CVs** (plusieurs)",
+        type=["docx", "pdf", "txt"],
+        accept_multiple_files=True,
+        key="rank_cvs_upload",
+        help="Téléversez tous les CVs à comparer",
+    )
+
+    if not uploaded_cvs:
+        st.title("📊 Classer les CVs")
+        st.markdown("""
+        **Classez plusieurs CVs face à une seule offre d'emploi.**
+
+        👈 Téléversez plusieurs CVs dans la barre latérale, puis fournissez l'offre ci-dessous.
+
+        Chaque CV sera évalué individuellement, puis classé du meilleur au moins bon.
+        """)
+        st.stop()
+
+    st.sidebar.success(f"✅ {len(uploaded_cvs)} CV(s) téléversé(s)")
+
+    # Parsing de tous les CVs
+    parsed_cvs = []
+    parse_errors = []
+    for f in uploaded_cvs:
+        try:
+            cv, _ = parse_cv_file(f.getvalue(), f.name)
+            name = cv.profile.name or os.path.splitext(f.name)[0]
+            parsed_cvs.append((name, cv))
+            st.sidebar.caption(f"  ✓ {name}")
+        except Exception as e:
+            parse_errors.append((f.name, str(e)))
+            st.sidebar.caption(f"  ✕ {f.name}")
+
+    if parse_errors:
+        for fname, err in parse_errors:
+            st.sidebar.error(f"❌ {fname} : {err}")
+
+    st.title("📊 Classer les CVs")
+    st.caption(f"{len(parsed_cvs)} CVs chargés")
+
+    # Entrée de l'offre
+    st.subheader("Offre d'emploi")
+    offer_text = _render_offer_input("rank")
+
+    st.divider()
+
+    if not offer_text:
+        st.info("👆 Fournissez une offre d'emploi ci-dessus pour lancer le classement.")
+        st.stop()
+
+    if not api_key:
+        st.warning("⚠️ Entrez votre clé API Anthropic dans la barre latérale pour lancer le classement.")
+        st.stop()
+
+    if len(parsed_cvs) == 0:
+        st.error("Aucun CV n'a pu être parsé. Vérifiez les fichiers et réessayez.")
+        st.stop()
+
+    if st.button(
+        f"🚀 Classer {len(parsed_cvs)} CVs",
+        type="primary",
+        use_container_width=True,
+    ):
+        progress_bar = st.progress(0, text="Démarrage...")
+        status_text = st.empty()
+
+        def update_progress(current, total):
+            pct = current / total if total > 0 else 0
+            progress_bar.progress(pct, text=f"Analyse du CV {current + 1}/{total}...")
+            if current < total:
+                name = parsed_cvs[current][0] if current < len(parsed_cvs) else ""
+                status_text.caption(f"🔍 En cours : {name}")
+
+        try:
+            from matcher import rank_cvs
+            ranking = rank_cvs(
+                parsed_cvs, offer_text, api_key, progress_callback=update_progress
+            )
+            st.session_state.ranking_result = ranking
+            progress_bar.progress(1.0, text="Terminé !")
+            status_text.empty()
+        except Exception as e:
+            st.error(f"❌ Erreur de classement : {e}")
+            st.exception(e)
+
+    if "ranking_result" in st.session_state:
+        ranking = st.session_state.ranking_result
+        st.divider()
+
+        # Tableau récapitulatif
+        st.subheader("🏆 Classement")
+
+        for rank, result in enumerate(ranking.ranked_candidates, 1):
+            emoji = _score_color(result.overall_score)
+            label = _score_label(result.overall_score)
+
+            # Ligne résumée
+            col_rank, col_name, col_score, col_label = st.columns([0.5, 4, 1.5, 1.5])
+            with col_rank:
+                if rank == 1:
+                    st.markdown(f"### 🥇")
+                elif rank == 2:
+                    st.markdown(f"### 🥈")
+                elif rank == 3:
+                    st.markdown(f"### 🥉")
+                else:
+                    st.markdown(f"### #{rank}")
+            with col_name:
+                st.markdown(f"### {result.candidate_name}")
+                st.caption(result.summary[:120] + "..." if len(result.summary) > 120 else result.summary)
+            with col_score:
+                st.markdown(f"### {emoji} {result.overall_score}/100")
+            with col_label:
+                st.markdown(f"### {label}")
+
+        # Résultats détaillés
+        st.divider()
+        st.subheader("📋 Résultats détaillés")
+
+        for result in ranking.ranked_candidates:
+            _render_match_result(result, expanded=False)
