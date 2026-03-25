@@ -106,11 +106,40 @@ def _set_run(run, *, bold=None, italic=None, size=None, color=None, caps=None):
 
 
 def _style_name(doc, preferred, fallback="Normal"):
+    """Find a style in the document, trying French equivalents if English not found."""
+    # French ↔ English style name equivalents
+    _FR_EQUIVALENTS = {
+        "Heading 1": "Titre 1",
+        "Heading 2": "Titre 2",
+        "Heading 3": "Titre 3",
+        "Heading 4": "Titre 4",
+        "Heading 5": "Titre 5",
+        "List Bullet": "Liste à puces",
+        "List Paragraph": "Paragraphe de liste",
+        "Titre 1": "Heading 1",
+        "Titre 2": "Heading 2",
+        "Titre 3": "Heading 3",
+        "Titre 4": "Heading 4",
+        "Titre 5": "Heading 5",
+        "Liste à puces": "List Bullet",
+        "Paragraphe de liste": "List Paragraph",
+    }
+    # Try preferred name first
     try:
         doc.styles[preferred]
         return preferred
     except Exception:
-        return fallback
+        pass
+    # Try the French/English equivalent
+    equiv = _FR_EQUIVALENTS.get(preferred)
+    if equiv:
+        try:
+            doc.styles[equiv]
+            return equiv
+        except Exception:
+            pass
+    # Final fallback
+    return fallback
 
 
 def _prompt_with_default(label: str, current_value: str = "") -> str:

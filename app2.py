@@ -658,6 +658,17 @@ if mode == "🎯 Matcher CV ↔ Offre":
         help="Le CV à comparer avec l'offre",
     )
 
+    match_template_file = st.sidebar.file_uploader(
+        "**Template INTM** (pour adaptation)",
+        type=["docx"],
+        key="match_template_upload",
+        help="Template DOCX INTM pour générer le CV adapté",
+    )
+    if match_template_file:
+        st.sidebar.success("✅ Template chargé")
+    else:
+        st.sidebar.caption("ℹ️ Template optionnel — requis pour générer le CV adapté")
+
     if not uploaded_cv:
         st.title("🎯 Matcher CV ↔ Offre")
         st.markdown("""
@@ -713,6 +724,224 @@ if mode == "🎯 Matcher CV ↔ Offre":
     if "match_result" in st.session_state:
         st.divider()
         _render_match_result(st.session_state.match_result, expanded=True)
+
+        # ── Adapter le CV pour l'offre ──
+        st.divider()
+        st.subheader("✨ Adapter le CV pour l'offre")
+        st.markdown(
+            "L'IA va **reformuler et réorganiser** le contenu du CV pour maximiser "
+            "la compatibilité avec l'offre. **Aucune compétence ni expérience ne sera inventée.**"
+        )
+
+        # Déterminer le template : template uploadé, ou le CV lui-même s'il est INTM
+        _match_template_path = None
+        if match_template_file:
+            _match_template_path = save_temp(match_template_file.getvalue(), ".docx")
+        else:
+            ext_cv = os.path.splitext(uploaded_cv.name)[1].lower()
+            if ext_cv == ".docx" and is_intm_format(uploaded_cv.getvalue()):
+                _match_template_path = save_temp(uploaded_cv.getvalue(), ".docx")
+
+        if not _match_template_path:
+            st.warning(
+                "⚠️ Pour générer le CV adapté en DOCX, téléversez un **template INTM** "
+                "dans la barre latérale."
+            )
+
+        col_adapt, col_dl = st.columns([1, 1])
+
+        with col_adapt:
+            adapt_disabled = not _match_template_path
+            if st.button(
+                "🎯 Adapter le CV",
+                type="primary",
+                use_container_width=True,
+                disabled=adapt_disabled,
+            ):
+                with st.spinner("✨ Adaptation du CV en cours..."):
+                    try:
+                        from tailor import tailor_cv
+
+                        # Construire un résumé du matching pour le contexte
+                        mr = st.session_state.match_result
+                        match_summary_parts = [f"Score global : {mr.overall_score}/100"]
+                        if mr.summary:
+                            match_summary_parts.append(f"Résumé : {mr.summary}")
+                        if mr.matched_skills:
+                            match_summary_parts.append(
+                                f"Compétences correspondantes : {', '.join(mr.matched_skills)}"
+                            )
+                        if mr.missing_skills:
+                            match_summary_parts.append(
+                                f"Compétences manquantes : {', '.join(mr.missing_skills)}"
+                            )
+                        if mr.tailoring_suggestions:
+                            match_summary_parts.append(
+                                "Suggestions : " + " | ".join(mr.tailoring_suggestions)
+                            )
+                        match_summary_text = "\n".join(match_summary_parts)
+
+                        tailored = tailor_cv(
+                            cv, offer_text, api_key,
+                            match_summary=match_summary_text,
+                        )
+                        st.session_state.tailored_cv = tailored
+                        st.session_state._match_template_path = _match_template_path
+                        st.success("✅ CV adapté avec succès !")
+                    except Exception as e:
+                        st.error(f"❌ Erreur d'adaptation : {e}")
+                        st.exception(e)
+
+        # Afficher le téléchargement si le CV adapté est prêt
+        if "tailored_cv" in st.session_state and st.session_state.get("_match_template_path"):
+            tailored = st.session_state.tailored_cv
+            tpl = st.session_state._match_template_path
+
+            with col_dl:
+                try:
+                    tailored_bytes = generate_output(tailored, tpl)
+                    out_name = f"CV_Adapté_{tailored.profile.name.replace(' ', '_')}.docx"
+                    st.download_button(
+                        label=f"📥 Télécharger {out_name}",
+                        data=tailored_bytes,
+                        file_name=out_name,
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                    )
+                except Exception as e:
+                    st.error(f"❌ Erreur de génération DOCX : {e}")
+
+            # Aperçu du CV adapté avec surlignage des modifications
+            st.divider()
+            st.subheader("📋 Aperçu du CV adapté")
+            st.caption("Les éléments modifiés sont surlignés en 🟡 jaune.")
+
+            def _hl(text: str) -> str:
+                """Wrap text in a yellow highlight span."""
+                return f'<span style="background-color: #FFF3CD; padding: 2px 4px; border-radius: 3px;">{text}</span>'
+
+            def _render_text(new: str, old: str) -> str:
+                """Return highlighted HTML if changed, plain text otherwise."""
+                if new.strip() != old.strip():
+                    return _hl(new)
+                return new
+
+            # --- Construire un index du CV original pour comparaison ---
+            orig_sections = {}
+            for s in cv.sections:
+                orig_sections[s.header.upper().strip()] = s
+
+            with st.expander("👤 Profil adapté", expanded=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"**Nom :** {tailored.profile.name}", unsafe_allow_html=True)
+                    title_html = _render_text(tailored.profile.title, cv.profile.title)
+                    st.markdown(f"**Titre :** {title_html}", unsafe_allow_html=True)
+                with col2:
+                    st.markdown(f"**Langue :** {tailored.profile.language}", unsafe_allow_html=True)
+                    st.markdown(f"**Expérience :** {tailored.profile.years_experience}", unsafe_allow_html=True)
+
+                if tailored.profile.title != cv.profile.title:
+                    st.info(
+                        f"💡 Titre modifié : ~~{cv.profile.title}~~ → **{tailored.profile.title}**"
+                    )
+
+            for sec in tailored.sections:
+                parts = []
+                if sec.table_rows:
+                    parts.append(f"{len(sec.table_rows)} lignes")
+                if sec.bullet_items:
+                    parts.append(f"{len(sec.bullet_items)} puces")
+                if sec.experience_blocks:
+                    parts.append(f"{len(sec.experience_blocks)} entrées")
+                sec_summary = ", ".join(parts) if parts else "vide"
+
+                # Trouver la section originale correspondante
+                orig_sec = orig_sections.get(sec.header.upper().strip())
+
+                with st.expander(f"**{sec.header}** — {sec_summary}", expanded=False):
+
+                    # --- Table rows ---
+                    if sec.table_rows:
+                        orig_rows = {}
+                        if orig_sec and orig_sec.table_rows:
+                            for r in orig_sec.table_rows:
+                                orig_rows[r.left.strip()] = r.right.strip()
+
+                        for row in sec.table_rows:
+                            orig_right = orig_rows.get(row.left.strip(), None)
+                            if orig_right is not None and orig_right != row.right.strip():
+                                st.markdown(
+                                    f"**{row.left}** — {_hl(row.right)}",
+                                    unsafe_allow_html=True,
+                                )
+                            elif orig_right is None and orig_sec and orig_sec.table_rows:
+                                # New row not in original
+                                st.markdown(
+                                    f"{_hl(f'<b>{row.left}</b> — {row.right}')}",
+                                    unsafe_allow_html=True,
+                                )
+                            else:
+                                st.markdown(f"**{row.left}** — {row.right}")
+
+                    # --- Bullet items ---
+                    if sec.bullet_items:
+                        orig_bullets = set()
+                        if orig_sec and orig_sec.bullet_items:
+                            orig_bullets = {b.strip() for b in orig_sec.bullet_items}
+
+                        for item in sec.bullet_items:
+                            if item.strip() not in orig_bullets:
+                                st.markdown(f"• {_hl(item)}", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"• {item}")
+
+                    # --- Experience blocks ---
+                    if sec.experience_blocks:
+                        orig_exps = {}
+                        if orig_sec and orig_sec.experience_blocks:
+                            for oe in orig_sec.experience_blocks:
+                                key = oe.title_line.strip()
+                                orig_exps[key] = oe
+
+                        for exp_block in sec.experience_blocks:
+                            st.markdown(f"**{exp_block.title_line}**")
+
+                            # Poste
+                            orig_exp = orig_exps.get(exp_block.title_line.strip())
+                            if exp_block.poste:
+                                orig_poste = orig_exp.poste.strip() if orig_exp else ""
+                                if exp_block.poste.strip() != orig_poste:
+                                    st.markdown(
+                                        f"{_hl(exp_block.poste)}",
+                                        unsafe_allow_html=True,
+                                    )
+                                else:
+                                    st.caption(exp_block.poste)
+
+                            # Sub-sections
+                            orig_sub_items = {}
+                            if orig_exp:
+                                for sh, sitems in orig_exp.sub_sections:
+                                    orig_sub_items[sh.strip()] = {
+                                        it.strip() for it in sitems
+                                    }
+
+                            for sub_h, items in exp_block.sub_sections:
+                                if sub_h:
+                                    st.markdown(f"*{sub_h}*")
+
+                                orig_items_set = orig_sub_items.get(
+                                    sub_h.strip(), set()
+                                )
+                                for item in items:
+                                    if item.strip() not in orig_items_set:
+                                        st.markdown(
+                                            f"&nbsp;&nbsp;• {_hl(item)}",
+                                            unsafe_allow_html=True,
+                                        )
+                                    else:
+                                        st.markdown(f"  • {item}")
 
 
 # ═══════════════════════════════════════════════════════════════════

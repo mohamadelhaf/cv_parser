@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from docx import Document
 
@@ -124,6 +125,19 @@ def parse_docx(path: str) -> ParsedCV:
             continue
         
         style = para.style.name if para.style else "Normal"
+        
+        # --- Normalize French style names to English equivalents ---
+        _STYLE_MAP = {
+            "Titre 1": "Heading 1",
+            "Titre 2": "Heading 2",
+            "Titre 3": "Heading 3",
+            "Titre 4": "Heading 4",
+            "Titre 5": "Heading 5",
+            "Liste à puces": "List Bullet",
+            "Paragraphe de liste": "List Paragraph",
+            "Titre Référence": "Titre Référence",  # keep as-is
+        }
+        style = _STYLE_MAP.get(style, style)
         text = para.text.strip().replace("\t\n", " ").replace("\n", " ").replace("\xa0", " ").strip()
         
         # Skip empty paragraphs and profile (already handled)
@@ -197,9 +211,38 @@ def parse_docx(path: str) -> ParsedCV:
                 current_section.bullet_items.append(text)
             continue
         
-        # --- Normal or other: could be inline env technique or context paragraph ---
+        # --- Normal or other: detect experience titles in French INTM variant ---
+        # French INTM variant uses Normal style with bold+tab for experience titles
+        # e.g. "SNCF\t\t42 mois (2022 – 2026)" or "365Talents\t13 mois (2021 – 2022)"
+        if style == "Normal" and text:
+            # Check if this looks like an experience title line (has tab + duration pattern)
+            has_tab = "\t" in para.text
+            is_bold = all(r.bold for r in para.runs if r.text.strip()) if para.runs else False
+            has_duration = bool(re.search(r"\d+\s*(?:mois|ans?|année)", text, re.IGNORECASE))
+            
+            if has_tab and is_bold and has_duration and current_section is not None:
+                # This is an experience title line — treat like "Titre Référence"
+                _flush_experience(current_section, current_exp, current_sub_header, current_sub_items)
+                if current_section.content_type == "table":
+                    current_section.content_type = "table+experiences"
+                else:
+                    current_section.content_type = "experiences"
+                # Normalize tabs: replace multiple tabs with single tab
+                normalized = re.sub(r"\t+", "\t", text)
+                current_exp = ExperienceBlock(title_line=normalized)
+                current_sub_header = ""
+                current_sub_items = []
+                continue
+            
+            # Check if this looks like a poste/role line (bold, short, no tab, inside experience)
+            if is_bold and not has_tab and current_exp is not None and not current_exp.poste:
+                word_count = len(text.split())
+                if word_count <= 8 and not text.endswith(":"):
+                    current_exp.poste = text
+                    continue
+        
         if text and current_exp is not None:
-            # Check if it's an inline "Environnement Technique : ..." line
+            # Check if it's an inline "Environnement Technique : ..." line or sub-header
             if current_sub_header or current_sub_items:
                 current_exp.sub_sections.append((current_sub_header, current_sub_items))
             current_sub_header = text
