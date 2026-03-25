@@ -11,7 +11,7 @@ st.set_page_config(page_title="DDC Lab", page_icon="📄", layout="wide")
 
 
 # ═══════════════════════════════════════════════════════════════════
-# Shared helpers
+# Helpers partagés
 # ═══════════════════════════════════════════════════════════════════
 
 def is_intm_format(file_bytes: bytes) -> bool:
@@ -38,7 +38,7 @@ def save_temp(file_bytes: bytes, suffix: str) -> str:
 
 
 def parse_cv_file(file_bytes: bytes, filename: str):
-    """Parse a CV file (any format) into a ParsedCV object."""
+    """Parse un fichier CV (tout format) en objet ParsedCV."""
     ext = os.path.splitext(filename)[1].lower()
     tmp_path = save_temp(file_bytes, ext)
 
@@ -51,7 +51,7 @@ def parse_cv_file(file_bytes: bytes, filename: str):
 
 
 def extract_offer_text(offer_file=None, offer_text_input=""):
-    """Get offer text from file or text input."""
+    """Récupère le texte de l'offre depuis un fichier ou un champ texte."""
     if offer_file is not None:
         ext = os.path.splitext(offer_file.name)[1].lower()
         tmp_path = save_temp(offer_file.getvalue(), ext)
@@ -70,42 +70,42 @@ def generate_output(cv, template_path: str) -> bytes:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# Sidebar — Mode selector + API key
+# Barre latérale — Sélecteur de mode + Clé API
 # ═══════════════════════════════════════════════════════════════════
 
 st.sidebar.title("📄 DDC Lab")
 
 mode = st.sidebar.radio(
     "Mode",
-    ["🔄 Convert CV", "🎯 Match CV ↔ Offer", "📊 Rank CVs"],
+    ["🔄 Convertir CV", "🎯 Matcher CV ↔ Offre", "📊 Classer les CVs"],
     key="app_mode",
 )
 
 st.sidebar.divider()
 
-# API key (loaded from .env file)
+# Clé API (chargée depuis le fichier .env)
 api_key = os.environ.get("MISTRAL_API_KEY", "")
 
-if mode in ["🎯 Match CV ↔ Offer", "📊 Rank CVs"]:
+if mode in ["🎯 Matcher CV ↔ Offre", "📊 Classer les CVs"]:
     if api_key:
-        st.sidebar.success("✅ API key loaded")
+        st.sidebar.success("✅ Clé API chargée")
     else:
-        st.sidebar.error("❌ API key missing — add ANTHROPIC_API_KEY to your .env file")
+        st.sidebar.error("❌ Clé API manquante — ajoutez ANTHROPIC_API_KEY dans votre fichier .env")
     st.sidebar.divider()
 
 
 # ═══════════════════════════════════════════════════════════════════
-# MODE 1: Convert CV (existing flow — unchanged)
+# MODE 1 : Convertir CV (flux existant — inchangé)
 # ═══════════════════════════════════════════════════════════════════
 
-if mode == "🔄 Convert CV":
-    st.sidebar.markdown("Convert any CV into INTM format")
+if mode == "🔄 Convertir CV":
+    st.sidebar.markdown("Convertir n'importe quel CV au format INTM")
     st.sidebar.divider()
 
     uploaded_file = st.sidebar.file_uploader(
-        "**Step 1:** Upload CV",
+        "**Étape 1 :** Téléverser le CV",
         type=["docx", "pdf", "txt"],
-        help="INTM DOCX, regular DOCX, PDF, or TXT",
+        help="DOCX INTM, DOCX classique, PDF ou TXT",
         key="convert_cv_upload",
     )
 
@@ -118,44 +118,44 @@ if mode == "🔄 Convert CV":
         if ext == ".docx":
             is_intm = is_intm_format(uploaded_file.getvalue())
             if is_intm:
-                st.sidebar.success("✅ INTM template detected")
+                st.sidebar.success("✅ Template INTM détecté")
             else:
                 needs_template = True
-                st.sidebar.info("ℹ️ Regular DOCX — upload a template below")
+                st.sidebar.info("ℹ️ DOCX classique — téléversez un template ci-dessous")
         elif ext in (".pdf", ".txt", ".md"):
             needs_template = True
-            st.sidebar.info(f"ℹ️ {ext.upper()} file — upload a template below")
+            st.sidebar.info(f"ℹ️ Fichier {ext.upper()} — téléversez un template ci-dessous")
 
     if needs_template:
         template_file = st.sidebar.file_uploader(
-            "**Step 2:** Upload INTM Template",
+            "**Étape 2 :** Téléverser le template INTM",
             type=["docx"],
             key="template_uploader",
-            help="Any existing INTM DOCX for styling",
+            help="N'importe quel DOCX INTM existant pour le style",
         )
         if template_file:
-            st.sidebar.success("✅ Template loaded")
+            st.sidebar.success("✅ Template chargé")
         else:
-            st.sidebar.warning("⚠️ Template required to generate output")
+            st.sidebar.warning("⚠️ Template requis pour générer le fichier")
 
     if not uploaded_file:
-        st.title("📄 DDC Lab — Convert")
+        st.title("📄 DDC Lab — Convertir")
         st.markdown("""
-        **Convert any CV into INTM-formatted Word document.**
+        **Convertir n'importe quel CV en document Word au format INTM.**
 
-        👈 Upload a file in the sidebar to get started.
+        👈 Téléversez un fichier dans la barre latérale pour commencer.
 
-        **Supported:** INTM DOCX, regular DOCX, PDF, TXT
+        **Formats supportés :** DOCX INTM, DOCX classique, PDF, TXT
         """)
         st.stop()
 
     if needs_template and not template_file:
-        st.title("📄 DDC Lab — Convert")
-        st.info("👈 Upload an INTM template DOCX in the sidebar to continue.")
-        st.markdown("Any INTM DDC will work as a template — it doesn't matter whose it is.")
+        st.title("📄 DDC Lab — Convertir")
+        st.info("👈 Téléversez un template DOCX INTM dans la barre latérale pour continuer.")
+        st.markdown("N'importe quel DDC INTM peut servir de template — peu importe à qui il appartient.")
         st.stop()
 
-    # Parse
+    # Parsing
     ext = os.path.splitext(uploaded_file.name)[1].lower()
     input_path = save_temp(uploaded_file.getvalue(), ext)
     template_path = input_path if is_intm else save_temp(template_file.getvalue(), ".docx")
@@ -169,7 +169,7 @@ if mode == "🔄 Convert CV":
             cv = parse_file_with_mistral(input_path)
         parse_mode = "intm" if is_intm else "text"
     except Exception as e:
-        st.error(f"❌ Error parsing: {e}")
+        st.error(f"❌ Erreur de parsing : {e}")
         st.exception(e)
         st.stop()
 
@@ -183,22 +183,22 @@ if mode == "🔄 Convert CV":
     template_path = st.session_state._template_path
 
     tab_profile, tab_sections, tab_generate = st.tabs(
-        ["👤 Profile", "📋 Sections", "📥 Generate"]
+        ["👤 Profil", "📋 Sections", "📥 Générer"]
     )
 
     with tab_profile:
-        st.header("Profile")
+        st.header("Profil")
         st.caption(
-            f"Parsed via {'INTM style-based parser' if parse_mode == 'intm' else 'text-based parser'}"
+            f"Parsé via {'le parser INTM (basé sur les styles)' if parse_mode == 'intm' else 'le parser texte'}"
         )
         col1, col2 = st.columns(2)
         with col1:
-            cv_edit.profile.name = st.text_input("Name", value=cv_edit.profile.name)
-            cv_edit.profile.title = st.text_input("Title / Role", value=cv_edit.profile.title)
+            cv_edit.profile.name = st.text_input("Nom", value=cv_edit.profile.name)
+            cv_edit.profile.title = st.text_input("Titre / Rôle", value=cv_edit.profile.title)
         with col2:
-            cv_edit.profile.language = st.text_input("Language", value=cv_edit.profile.language)
+            cv_edit.profile.language = st.text_input("Langue", value=cv_edit.profile.language)
             cv_edit.profile.years_experience = st.text_input(
-                "Years of experience", value=cv_edit.profile.years_experience
+                "Années d'expérience", value=cv_edit.profile.years_experience
             )
 
     with tab_sections:
@@ -210,62 +210,62 @@ if mode == "🔄 Convert CV":
         for i, section in enumerate(cv_edit.sections):
             parts = []
             if section.table_rows:
-                parts.append(f"{len(section.table_rows)} rows")
+                parts.append(f"{len(section.table_rows)} lignes")
             if section.bullet_items:
-                parts.append(f"{len(section.bullet_items)} bullets")
+                parts.append(f"{len(section.bullet_items)} puces")
             if section.experience_blocks:
-                parts.append(f"{len(section.experience_blocks)} entries")
-            summary = ", ".join(parts) if parts else "empty"
+                parts.append(f"{len(section.experience_blocks)} entrées")
+            summary = ", ".join(parts) if parts else "vide"
 
             with st.expander(f"**{section.header}** — {summary}", expanded=False):
                 c_h, c_d = st.columns([5, 1])
                 with c_h:
                     section.header = st.text_input(
-                        "Section name", value=section.header, key=f"h_{i}"
+                        "Nom de la section", value=section.header, key=f"h_{i}"
                     )
                 with c_d:
                     st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("🗑️ Delete", key=f"ds_{i}"):
+                    if st.button("🗑️ Supprimer", key=f"ds_{i}"):
                         sections_to_delete.append(i)
 
                 if section.table_rows:
-                    st.markdown("##### Table rows")
+                    st.markdown("##### Lignes du tableau")
                     rows_del = []
                     for j, row in enumerate(section.table_rows):
                         c1, c2, c3 = st.columns([3, 5, 1])
                         with c1:
                             row.left = st.text_input(
-                                "L", value=row.left, key=f"tl_{i}_{j}", label_visibility="collapsed"
+                                "G", value=row.left, key=f"tl_{i}_{j}", label_visibility="collapsed"
                             )
                         with c2:
                             row.right = st.text_input(
-                                "R", value=row.right, key=f"tr_{i}_{j}", label_visibility="collapsed"
+                                "D", value=row.right, key=f"tr_{i}_{j}", label_visibility="collapsed"
                             )
                         with c3:
                             if st.button("✕", key=f"dtr_{i}_{j}"):
                                 rows_del.append(j)
                     for j in sorted(rows_del, reverse=True):
                         section.table_rows.pop(j)
-                    if st.button("➕ Add row", key=f"atr_{i}"):
+                    if st.button("➕ Ajouter une ligne", key=f"atr_{i}"):
                         from parser_v2 import TableRow
                         section.table_rows.append(TableRow(left="", right=""))
                         st.rerun()
 
                 if section.bullet_items:
-                    st.markdown("##### Bullets")
+                    st.markdown("##### Puces")
                     bul_del = []
                     for j, item in enumerate(section.bullet_items):
                         c1, c2 = st.columns([9, 1])
                         with c1:
                             section.bullet_items[j] = st.text_input(
-                                "B", value=item, key=f"bl_{i}_{j}", label_visibility="collapsed"
+                                "P", value=item, key=f"bl_{i}_{j}", label_visibility="collapsed"
                             )
                         with c2:
                             if st.button("✕", key=f"dbl_{i}_{j}"):
                                 bul_del.append(j)
                     for j in sorted(bul_del, reverse=True):
                         section.bullet_items.pop(j)
-                    if st.button("➕ Add bullet", key=f"abl_{i}"):
+                    if st.button("➕ Ajouter une puce", key=f"abl_{i}"):
                         section.bullet_items.append("")
                         st.rerun()
 
@@ -275,7 +275,7 @@ if mode == "🔄 Convert CV":
                         c_t, c_de = st.columns([8, 1])
                         with c_t:
                             exp.title_line = st.text_input(
-                                "Title", value=exp.title_line, key=f"et_{i}_{k}"
+                                "Titre", value=exp.title_line, key=f"et_{i}_{k}"
                             )
                         with c_de:
                             st.markdown("<br>", unsafe_allow_html=True)
@@ -290,14 +290,14 @@ if mode == "🔄 Convert CV":
 
                         for s_idx, (sub_header, items) in enumerate(exp.sub_sections):
                             st.markdown(
-                                f"**{sub_header}**" if sub_header else "**Content:**"
+                                f"**{sub_header}**" if sub_header else "**Contenu :**"
                             )
                             items_del = []
                             for ii, item in enumerate(items):
                                 c1, c2 = st.columns([9, 1])
                                 with c1:
                                     items[ii] = st.text_input(
-                                        "I",
+                                        "E",
                                         value=item,
                                         key=f"ei_{i}_{k}_{s_idx}_{ii}",
                                         label_visibility="collapsed",
@@ -307,16 +307,16 @@ if mode == "🔄 Convert CV":
                                         items_del.append(ii)
                             for idx in sorted(items_del, reverse=True):
                                 items.pop(idx)
-                            if st.button(f"➕ Add item", key=f"aei_{i}_{k}_{s_idx}"):
+                            if st.button(f"➕ Ajouter un élément", key=f"aei_{i}_{k}_{s_idx}"):
                                 items.append("")
                                 st.rerun()
 
-                        if st.button("➕ Add sub-section", key=f"ass_{i}_{k}"):
+                        if st.button("➕ Ajouter une sous-section", key=f"ass_{i}_{k}"):
                             exp.sub_sections.append(("ROLE :", [""]))
                             st.rerun()
 
                     st.divider()
-                    if st.button("➕ Add experience entry", key=f"aex_{i}"):
+                    if st.button("➕ Ajouter une expérience", key=f"aex_{i}"):
                         from parser_v2 import ExperienceBlock
                         section.experience_blocks.append(
                             ExperienceBlock(
@@ -335,21 +335,21 @@ if mode == "🔄 Convert CV":
                     and not section.bullet_items
                     and not section.experience_blocks
                 ):
-                    st.info("Empty section — choose content type:")
+                    st.info("Section vide — choisissez un type de contenu :")
                     c1, c2, c3 = st.columns(3)
                     with c1:
-                        if st.button("➕ Table", key=f"aet_{i}"):
+                        if st.button("➕ Tableau", key=f"aet_{i}"):
                             from parser_v2 import TableRow
                             section.content_type = "table"
                             section.table_rows.append(TableRow(left="", right=""))
                             st.rerun()
                     with c2:
-                        if st.button("➕ Bullets", key=f"aeb_{i}"):
+                        if st.button("➕ Puces", key=f"aeb_{i}"):
                             section.content_type = "bullets"
                             section.bullet_items.append("")
                             st.rerun()
                     with c3:
-                        if st.button("➕ Experiences", key=f"aee_{i}"):
+                        if st.button("➕ Expériences", key=f"aee_{i}"):
                             from parser_v2 import ExperienceBlock
                             section.content_type = "experiences"
                             section.experience_blocks.append(
@@ -370,33 +370,33 @@ if mode == "🔄 Convert CV":
             st.rerun()
 
         st.divider()
-        st.subheader("➕ Add new section")
+        st.subheader("➕ Ajouter une nouvelle section")
         c_name, c_type, c_pos = st.columns([3, 2, 2])
         with c_name:
-            new_name = st.text_input("Section name", value="", key="new_sec_name")
+            new_name = st.text_input("Nom de la section", value="", key="new_sec_name")
         with c_type:
             new_type = st.selectbox(
                 "Type",
-                ["Bullet list", "Table (2 columns)", "Experiences"],
+                ["Liste à puces", "Tableau (2 colonnes)", "Expériences"],
                 key="new_sec_type",
             )
         with c_pos:
-            positions = ["At the end"] + [
-                f"Before: {s.header}" for s in cv_edit.sections
+            positions = ["À la fin"] + [
+                f"Avant : {s.header}" for s in cv_edit.sections
             ]
             new_pos = st.selectbox("Position", positions, key="new_sec_pos")
 
-        if st.button("➕ Add section", key="add_new_sec", use_container_width=True):
+        if st.button("➕ Ajouter la section", key="add_new_sec", use_container_width=True):
             if not new_name.strip():
-                st.warning("Enter a section name.")
+                st.warning("Entrez un nom de section.")
             else:
                 from parser_v2 import Section, TableRow, ExperienceBlock
 
                 ns = Section(header=new_name.strip())
-                if new_type == "Bullet list":
+                if new_type == "Liste à puces":
                     ns.content_type = "bullets"
                     ns.bullet_items = [""]
-                elif new_type == "Table (2 columns)":
+                elif new_type == "Tableau (2 colonnes)":
                     ns.content_type = "table"
                     ns.table_rows = [TableRow(left="", right="")]
                 else:
@@ -412,10 +412,10 @@ if mode == "🔄 Convert CV":
                         )
                     ]
 
-                if new_pos == "At the end":
+                if new_pos == "À la fin":
                     cv_edit.sections.append(ns)
                 else:
-                    target = new_pos.replace("Before: ", "")
+                    target = new_pos.replace("Avant : ", "")
                     idx = next(
                         (
                             j
@@ -428,18 +428,18 @@ if mode == "🔄 Convert CV":
                 st.rerun()
 
     with tab_generate:
-        st.header("Generate DOCX")
+        st.header("Générer le DOCX")
 
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(f"**Name:** {cv_edit.profile.name}")
-            st.markdown(f"**Title:** {cv_edit.profile.title}")
+            st.markdown(f"**Nom :** {cv_edit.profile.name}")
+            st.markdown(f"**Titre :** {cv_edit.profile.title}")
         with col2:
-            st.markdown(f"**Language:** {cv_edit.profile.language}")
-            st.markdown(f"**Experience:** {cv_edit.profile.years_experience}")
+            st.markdown(f"**Langue :** {cv_edit.profile.language}")
+            st.markdown(f"**Expérience :** {cv_edit.profile.years_experience}")
 
         st.divider()
-        st.markdown(f"**{len(cv_edit.sections)} sections:**")
+        st.markdown(f"**{len(cv_edit.sections)} sections :**")
         for s in cv_edit.sections:
             icon = (
                 "📊"
@@ -449,40 +449,40 @@ if mode == "🔄 Convert CV":
             count = (
                 len(s.table_rows) + len(s.bullet_items) + len(s.experience_blocks)
             )
-            st.markdown(f"  {icon} **{s.header}** ({count} items)")
+            st.markdown(f"  {icon} **{s.header}** ({count} éléments)")
 
         st.divider()
 
         base_name = os.path.splitext(uploaded_file.name)[0]
         output_name = st.text_input(
-            "📁 Output file name",
+            "📁 Nom du fichier de sortie",
             value=f"INTM_DDC_{cv_edit.profile.name.replace(' ', '_')}",
-            help="The .docx extension will be added automatically",
+            help="L'extension .docx sera ajoutée automatiquement",
         )
         if not output_name.strip():
             output_name = f"{base_name}_INTM"
         if not output_name.endswith(".docx"):
             output_name = f"{output_name}.docx"
 
-        if st.button("🚀 Generate DOCX", type="primary", use_container_width=True):
-            with st.spinner("Generating..."):
+        if st.button("🚀 Générer le DOCX", type="primary", use_container_width=True):
+            with st.spinner("Génération en cours..."):
                 try:
                     docx_bytes = generate_output(cv_edit, template_path)
-                    st.success("✅ Generated!")
+                    st.success("✅ Généré avec succès !")
                     st.download_button(
-                        label=f"📥 Download {output_name}",
+                        label=f"📥 Télécharger {output_name}",
                         data=docx_bytes,
                         file_name=output_name,
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         use_container_width=True,
                     )
                 except Exception as e:
-                    st.error(f"❌ Error: {e}")
+                    st.error(f"❌ Erreur : {e}")
                     st.exception(e)
 
 
 # ═══════════════════════════════════════════════════════════════════
-# Shared UI helpers for match results
+# Helpers UI partagés pour les résultats de matching
 # ═══════════════════════════════════════════════════════════════════
 
 def _score_color(score: int) -> str:
@@ -501,16 +501,16 @@ def _score_label(score: int) -> str:
     if score >= 85:
         return "Excellent"
     elif score >= 70:
-        return "Good"
+        return "Bon"
     elif score >= 50:
-        return "Partial"
+        return "Partiel"
     elif score >= 30:
-        return "Weak"
-    return "Poor"
+        return "Faible"
+    return "Insuffisant"
 
 
 def _render_score_bar(label: str, score: int):
-    """Render a colored progress bar with label."""
+    """Affiche une barre de progression colorée avec un label."""
     color = (
         "#1D9E75" if score >= 85
         else "#378ADD" if score >= 70
@@ -536,7 +536,7 @@ def _render_score_bar(label: str, score: int):
 
 
 def _render_match_result(result, expanded=True):
-    """Render a full MatchResult in the UI."""
+    """Affiche un MatchResult complet dans l'UI."""
     score = result.overall_score
     emoji = _score_color(score)
     label = _score_label(score)
@@ -545,169 +545,169 @@ def _render_match_result(result, expanded=True):
         f"{emoji} **{result.candidate_name}** — {score}/100 ({label})",
         expanded=expanded,
     ):
-        # Summary
+        # Résumé
         st.markdown(f"*{result.summary}*")
         st.divider()
 
-        # Detail scores
+        # Scores détaillés
         if result.detail_scores:
-            st.markdown("**Score breakdown**")
+            st.markdown("**Détail des scores**")
             detail_labels = {
-                "skills": "🛠️ Skills",
-                "experience": "💼 Experience",
-                "domain": "🏢 Domain",
-                "education": "🎓 Education",
-                "languages": "🌐 Languages",
+                "skills": "🛠️ Compétences",
+                "experience": "💼 Expérience",
+                "domain": "🏢 Domaine",
+                "education": "🎓 Formation",
+                "languages": "🌐 Langues",
             }
             for key, lbl in detail_labels.items():
                 val = result.detail_scores.get(key, 0)
                 _render_score_bar(lbl, val)
             st.divider()
 
-        # Matched vs Missing skills
+        # Compétences correspondantes vs manquantes
         col1, col2 = st.columns(2)
         with col1:
             if result.matched_skills:
-                st.markdown("**✅ Matched skills**")
+                st.markdown("**✅ Compétences correspondantes**")
                 for s in result.matched_skills:
                     st.markdown(f"- {s}")
         with col2:
             if result.missing_skills:
-                st.markdown("**❌ Missing skills**")
+                st.markdown("**❌ Compétences manquantes**")
                 for s in result.missing_skills:
                     st.markdown(f"- {s}")
 
-        # Strengths & Risks
+        # Points forts & Risques
         col3, col4 = st.columns(2)
         with col3:
             if result.strengths:
-                st.markdown("**💪 Strengths**")
+                st.markdown("**💪 Points forts**")
                 for s in result.strengths:
                     st.markdown(f"- {s}")
         with col4:
             if result.risks:
-                st.markdown("**⚠️ Risks**")
+                st.markdown("**⚠️ Risques**")
                 for r in result.risks:
                     st.markdown(f"- {r}")
 
-        # Experience match
+        # Expérience correspondante
         col5, col6 = st.columns(2)
         with col5:
             if result.matched_experience:
-                st.markdown("**✅ Relevant experience**")
+                st.markdown("**✅ Expérience pertinente**")
                 for e in result.matched_experience:
                     st.markdown(f"- {e}")
         with col6:
             if result.experience_gaps:
-                st.markdown("**❌ Experience gaps**")
+                st.markdown("**❌ Lacunes d'expérience**")
                 for g in result.experience_gaps:
                     st.markdown(f"- {g}")
 
-        # Tailoring suggestions
+        # Suggestions d'adaptation
         if result.tailoring_suggestions:
             st.divider()
-            st.markdown("**💡 Tailoring suggestions**")
+            st.markdown("**💡 Suggestions d'adaptation**")
             for i, s in enumerate(result.tailoring_suggestions, 1):
                 st.markdown(f"{i}. {s}")
 
 
 def _render_offer_input(key_prefix: str):
-    """Render offer input (file upload OR text paste) and return offer text."""
+    """Affiche l'entrée de l'offre (téléversement OU copier-coller) et retourne le texte."""
     offer_method = st.radio(
-        "How to provide the job offer:",
-        ["📄 Upload file", "📝 Paste text"],
+        "Comment fournir l'offre d'emploi :",
+        ["📄 Téléverser un fichier", "📝 Coller le texte"],
         horizontal=True,
         key=f"{key_prefix}_offer_method",
     )
 
     offer_text = ""
-    if offer_method == "📄 Upload file":
+    if offer_method == "📄 Téléverser un fichier":
         offer_file = st.file_uploader(
-            "Upload job offer",
+            "Téléverser l'offre d'emploi",
             type=["pdf", "docx", "txt"],
             key=f"{key_prefix}_offer_file",
-            help="PDF, DOCX, or TXT",
+            help="PDF, DOCX ou TXT",
         )
         if offer_file:
             try:
                 offer_text = extract_offer_text(offer_file=offer_file)
-                st.success(f"✅ Extracted {len(offer_text)} characters from offer")
+                st.success(f"✅ {len(offer_text)} caractères extraits de l'offre")
             except Exception as e:
-                st.error(f"❌ Error reading offer: {e}")
+                st.error(f"❌ Erreur de lecture de l'offre : {e}")
     else:
         offer_text = st.text_area(
-            "Paste the job offer here",
+            "Collez l'offre d'emploi ici",
             height=250,
             key=f"{key_prefix}_offer_text",
-            placeholder="Paste the full job description...",
+            placeholder="Collez la description complète du poste...",
         )
 
     return offer_text
 
 
 # ═══════════════════════════════════════════════════════════════════
-# MODE 2: Match single CV ↔ Offer
+# MODE 2 : Matcher un CV ↔ une Offre
 # ═══════════════════════════════════════════════════════════════════
 
-if mode == "🎯 Match CV ↔ Offer":
+if mode == "🎯 Matcher CV ↔ Offre":
 
     uploaded_cv = st.sidebar.file_uploader(
-        "**Upload CV**",
+        "**Téléverser le CV**",
         type=["docx", "pdf", "txt"],
         key="match_cv_upload",
-        help="The CV to match against the offer",
+        help="Le CV à comparer avec l'offre",
     )
 
     if not uploaded_cv:
-        st.title("🎯 Match CV ↔ Offer")
+        st.title("🎯 Matcher CV ↔ Offre")
         st.markdown("""
-        **Score how well a CV matches a job offer.**
+        **Évaluez la compatibilité d'un CV avec une offre d'emploi.**
 
-        👈 Upload a CV in the sidebar, then provide the job offer below.
+        👈 Téléversez un CV dans la barre latérale, puis fournissez l'offre ci-dessous.
 
-        The AI will analyze compatibility and give you:
-        - Overall score (0–100)
-        - Detailed breakdown by skills, experience, domain, education, languages
-        - Matched & missing skills
-        - Strengths, risks, and tailoring suggestions
+        L'IA analysera la compatibilité et vous donnera :
+        - Un score global (0–100)
+        - Un détail par compétences, expérience, domaine, formation, langues
+        - Les compétences correspondantes et manquantes
+        - Les points forts, risques et suggestions d'adaptation
         """)
         st.stop()
 
-    # Parse CV
+    # Parsing du CV
     try:
         cv, parse_mode = parse_cv_file(uploaded_cv.getvalue(), uploaded_cv.name)
-        st.sidebar.success(f"✅ CV parsed: **{cv.profile.name}**")
+        st.sidebar.success(f"✅ CV parsé : **{cv.profile.name}**")
     except Exception as e:
-        st.error(f"❌ Error parsing CV: {e}")
+        st.error(f"❌ Erreur de parsing du CV : {e}")
         st.exception(e)
         st.stop()
 
-    st.title("🎯 Match CV ↔ Offer")
-    st.caption(f"CV: **{cv.profile.name}** — {cv.profile.title}")
+    st.title("🎯 Matcher CV ↔ Offre")
+    st.caption(f"CV : **{cv.profile.name}** — {cv.profile.title}")
 
-    # Offer input
-    st.subheader("Job Offer")
+    # Entrée de l'offre
+    st.subheader("Offre d'emploi")
     offer_text = _render_offer_input("match")
 
-    # Run matching
+    # Lancer le matching
     st.divider()
 
     if not offer_text:
-        st.info("👆 Provide a job offer above to start matching.")
+        st.info("👆 Fournissez une offre d'emploi ci-dessus pour lancer le matching.")
         st.stop()
 
     if not api_key:
-        st.warning("⚠️ Enter your Anthropic API key in the sidebar to run the match.")
+        st.warning("⚠️ Entrez votre clé API Anthropic dans la barre latérale pour lancer le matching.")
         st.stop()
 
-    if st.button("🚀 Run Match", type="primary", use_container_width=True):
-        with st.spinner("🔍 Analyzing compatibility..."):
+    if st.button("🚀 Lancer le matching", type="primary", use_container_width=True):
+        with st.spinner("🔍 Analyse de la compatibilité..."):
             try:
                 from matcher import match_cv
                 result = match_cv(cv, offer_text, api_key)
                 st.session_state.match_result = result
             except Exception as e:
-                st.error(f"❌ Matching error: {e}")
+                st.error(f"❌ Erreur de matching : {e}")
                 st.exception(e)
 
     if "match_result" in st.session_state:
@@ -716,33 +716,33 @@ if mode == "🎯 Match CV ↔ Offer":
 
 
 # ═══════════════════════════════════════════════════════════════════
-# MODE 3: Rank multiple CVs against one offer
+# MODE 3 : Classer plusieurs CVs face à une offre
 # ═══════════════════════════════════════════════════════════════════
 
-if mode == "📊 Rank CVs":
+if mode == "📊 Classer les CVs":
 
     uploaded_cvs = st.sidebar.file_uploader(
-        "**Upload CVs** (multiple)",
+        "**Téléverser les CVs** (plusieurs)",
         type=["docx", "pdf", "txt"],
         accept_multiple_files=True,
         key="rank_cvs_upload",
-        help="Upload all CVs to compare",
+        help="Téléversez tous les CVs à comparer",
     )
 
     if not uploaded_cvs:
-        st.title("📊 Rank CVs")
+        st.title("📊 Classer les CVs")
         st.markdown("""
-        **Rank multiple CVs against a single job offer.**
+        **Classez plusieurs CVs face à une seule offre d'emploi.**
 
-        👈 Upload multiple CVs in the sidebar, then provide the job offer below.
+        👈 Téléversez plusieurs CVs dans la barre latérale, puis fournissez l'offre ci-dessous.
 
-        Each CV will be scored individually, then ranked from best to worst match.
+        Chaque CV sera évalué individuellement, puis classé du meilleur au moins bon.
         """)
         st.stop()
 
-    st.sidebar.success(f"✅ {len(uploaded_cvs)} CV(s) uploaded")
+    st.sidebar.success(f"✅ {len(uploaded_cvs)} CV(s) téléversé(s)")
 
-    # Parse all CVs
+    # Parsing de tous les CVs
     parsed_cvs = []
     parse_errors = []
     for f in uploaded_cvs:
@@ -757,43 +757,43 @@ if mode == "📊 Rank CVs":
 
     if parse_errors:
         for fname, err in parse_errors:
-            st.sidebar.error(f"❌ {fname}: {err}")
+            st.sidebar.error(f"❌ {fname} : {err}")
 
-    st.title("📊 Rank CVs")
-    st.caption(f"{len(parsed_cvs)} CVs loaded")
+    st.title("📊 Classer les CVs")
+    st.caption(f"{len(parsed_cvs)} CVs chargés")
 
-    # Offer input
-    st.subheader("Job Offer")
+    # Entrée de l'offre
+    st.subheader("Offre d'emploi")
     offer_text = _render_offer_input("rank")
 
     st.divider()
 
     if not offer_text:
-        st.info("👆 Provide a job offer above to start ranking.")
+        st.info("👆 Fournissez une offre d'emploi ci-dessus pour lancer le classement.")
         st.stop()
 
     if not api_key:
-        st.warning("⚠️ Enter your Anthropic API key in the sidebar to run ranking.")
+        st.warning("⚠️ Entrez votre clé API Anthropic dans la barre latérale pour lancer le classement.")
         st.stop()
 
     if len(parsed_cvs) == 0:
-        st.error("No CVs were successfully parsed. Check the files and try again.")
+        st.error("Aucun CV n'a pu être parsé. Vérifiez les fichiers et réessayez.")
         st.stop()
 
     if st.button(
-        f"🚀 Rank {len(parsed_cvs)} CVs",
+        f"🚀 Classer {len(parsed_cvs)} CVs",
         type="primary",
         use_container_width=True,
     ):
-        progress_bar = st.progress(0, text="Starting...")
+        progress_bar = st.progress(0, text="Démarrage...")
         status_text = st.empty()
 
         def update_progress(current, total):
             pct = current / total if total > 0 else 0
-            progress_bar.progress(pct, text=f"Analyzing CV {current + 1}/{total}...")
+            progress_bar.progress(pct, text=f"Analyse du CV {current + 1}/{total}...")
             if current < total:
                 name = parsed_cvs[current][0] if current < len(parsed_cvs) else ""
-                status_text.caption(f"🔍 Matching: {name}")
+                status_text.caption(f"🔍 En cours : {name}")
 
         try:
             from matcher import rank_cvs
@@ -801,24 +801,24 @@ if mode == "📊 Rank CVs":
                 parsed_cvs, offer_text, api_key, progress_callback=update_progress
             )
             st.session_state.ranking_result = ranking
-            progress_bar.progress(1.0, text="Done!")
+            progress_bar.progress(1.0, text="Terminé !")
             status_text.empty()
         except Exception as e:
-            st.error(f"❌ Ranking error: {e}")
+            st.error(f"❌ Erreur de classement : {e}")
             st.exception(e)
 
     if "ranking_result" in st.session_state:
         ranking = st.session_state.ranking_result
         st.divider()
 
-        # Summary table
-        st.subheader("🏆 Ranking")
+        # Tableau récapitulatif
+        st.subheader("🏆 Classement")
 
         for rank, result in enumerate(ranking.ranked_candidates, 1):
             emoji = _score_color(result.overall_score)
             label = _score_label(result.overall_score)
 
-            # Quick summary row
+            # Ligne résumée
             col_rank, col_name, col_score, col_label = st.columns([0.5, 4, 1.5, 1.5])
             with col_rank:
                 if rank == 1:
@@ -837,9 +837,9 @@ if mode == "📊 Rank CVs":
             with col_label:
                 st.markdown(f"### {label}")
 
-        # Detailed results
+        # Résultats détaillés
         st.divider()
-        st.subheader("📋 Detailed Results")
+        st.subheader("📋 Résultats détaillés")
 
         for result in ranking.ranked_candidates:
             _render_match_result(result, expanded=False)
