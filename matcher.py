@@ -1,12 +1,13 @@
 """
-CV ↔ Job Offer Matcher
-======================
+CV ↔ Job Offer Matcher (v2 — Two-Step)
+=======================================
 Supports both Mistral and Claude APIs — switch with the AI_PROVIDER setting.
 
-Supports:
-  - Single CV scoring against an offer
-  - Batch ranking of multiple CVs against one offer
-  - Job offer input as text or extracted from PDF/DOCX
+Two-step matching:
+  Step 1: Extract structured requirements from the job offer (once)
+  Step 2: Match the CV strictly against those extracted requirements
+
+This prevents the LLM from listing CV skills that the offer never asked for.
 """
 
 import json
@@ -111,11 +112,58 @@ def _cv_to_text(cv: ParsedCV) -> str:
     return "\n".join(parts)
 
 
-# ---------------------------------------------------------------------------
-# Prompt
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# STEP 1 — Extract structured requirements from the offer
+# ===========================================================================
 
-MATCH_SYSTEM_PROMPT = """You are an expert HR/recruitment analyst. Your job is to analyze the compatibility between a candidate's CV and a job offer.
+EXTRACT_SYSTEM_PROMPT = """You are an expert HR analyst. You receive a job offer / job description.
+
+Your ONLY job is to extract the EXPLICIT requirements from the offer. Do NOT invent, infer, or add requirements that are not stated or strongly implied by the text.
+
+Return ONLY valid JSON — no explanation, no markdown, no code fences.
+
+JSON structure:
+{
+  "job_title": "<the role title>",
+  "required_skills": ["<skill1>", "<skill2>", ...],
+  "required_experience": {
+    "years": "<minimum years if mentioned, else empty string>",
+    "domains": ["<domain1>", "<domain2>", ...],
+    "specific_tasks": ["<task1>", "<task2>", ...]
+  },
+  "required_education": ["<degree or certification if mentioned>"],
+  "required_languages": ["<language requirements if mentioned>"],
+  "tools_and_platforms": ["<specific tool/platform/framework mentioned>"],
+  "soft_skills": ["<soft skill if explicitly mentioned>"],
+  "nice_to_have": ["<skills mentioned as optional/preferred/bonus>"]
+}
+
+━━━ STRICT RULES ━━━
+
+- required_skills: ONLY list technologies, frameworks, methodologies, and technical skills that the offer explicitly names or clearly implies. Examples: "Python", "LangChain", "RAG", "Azure OpenAI".
+  → Do NOT add generic skills like "teamwork" or "communication" unless the offer explicitly states them.
+  → Do NOT split compound requirements: if the offer says "MCP, frameworks Semantic Kernel / LangChain", list "MCP", "Semantic Kernel", "LangChain" as separate items.
+
+- tools_and_platforms: specific products, platforms, or environments mentioned (e.g. "Copilot Studio", "M365/Graph", "Azure AI Search").
+
+- nice_to_have: skills or qualifications that are mentioned as preferred, bonus, or "nice to have" — NOT as hard requirements.
+
+- If a category has no items, use an empty list [].
+
+━━━ LANGUAGE RULE ━━━
+Write everything in the same language as the job offer.
+"""
+
+
+# ===========================================================================
+# STEP 2 — Match CV against extracted requirements
+# ===========================================================================
+
+MATCH_SYSTEM_PROMPT = """You are an expert HR/recruitment analyst. You receive:
+1. A candidate's CV
+2. A STRUCTURED LIST OF REQUIREMENTS extracted from a job offer
+
+Your job is to evaluate the CV STRICTLY against these requirements — nothing else.
 
 You must respond ONLY with a valid JSON object (no markdown, no backticks, no preamble).
 
@@ -153,37 +201,40 @@ detail_scores must be consistent with overall_score:
 - If key required frameworks are missing, skills score must reflect that gap
 - overall_score must never be higher than the average of detail_scores by more than 5 points
 
-━━━ STRICT CONTENT RULES ━━━
+━━━ CRITICAL MATCHING RULES ━━━
 
-matched_skills — ONLY include a skill if:
-  1. It is explicitly written in the CV text (word-for-word or near-exact match)
-  2. AND it is relevant to the job offer
-  → Never infer or assume a skill from context. If Python is listed but FastAPI is not, do NOT list FastAPI as matched.
+matched_skills — ONLY include a skill if ALL of these are true:
+  1. The skill appears in the REQUIREMENTS list (required_skills OR tools_and_platforms)
+  2. AND the skill is explicitly present in the CV (word-for-word or near-exact match)
+  → NEVER include skills that are only in the CV but not in the requirements.
+  → NEVER include skills that are only in the requirements but not in the CV — those go in missing_skills.
+  → NEVER infer skills. If the CV says "Python" but the requirement is "FastAPI", do NOT list FastAPI as matched.
 
-missing_skills — ONLY include a skill if:
-  1. It is explicitly required or strongly implied by the job offer
-  2. AND it is NOT present in the CV
-  → Stick to what the offer actually asks for. Do not invent requirements not mentioned in the offer.
-  → Keep this list focused: maximum 8-10 items, prioritized by importance to the role.
+missing_skills — ONLY include a skill if ALL of these are true:
+  1. The skill appears in the REQUIREMENTS list (required_skills OR tools_and_platforms)
+  2. AND the skill is NOT present in the CV in any form
+  → Every skill in the requirements list must appear in EITHER matched_skills OR missing_skills — none should be dropped.
 
-NEVER list the same skill (or near-identical variants) in both matched_skills and missing_skills.
-  → Wrong: matched has "CI/CD", missing has "CI/CD pipelines" — pick one column only.
-  → Rule: if the skill is present in the CV in any form, put it in matched_skills. If it is absent entirely, put it in missing_skills.
+CROSS-CHECK: matched_skills + missing_skills should together cover ALL items from required_skills and tools_and_platforms. If a required skill is in neither list, you made an error.
 
-matched_experience — list actual job experiences, projects, or missions from the CV that are relevant to the offer.
+NEVER list the same skill in both matched_skills and missing_skills.
+
+matched_experience — list SPECIFIC job experiences, projects, or missions from the CV that are relevant to the requirements.
   → Be specific: mention company names, project names, or technologies used.
-  → Do not list generic statements like "experience in Python" — that belongs in matched_skills.
+  → Do NOT list generic statements like "experience in Python" — that belongs in matched_skills.
+  → Do NOT fabricate experience that is not written in the CV.
 
-experience_gaps — focus only on gaps that matter for THIS specific role.
-  → Do not repeat points already covered in missing_skills or risks.
+experience_gaps — gaps between what the requirements ask and what the CV shows.
+  → Do not repeat points already in missing_skills.
   → Maximum 4-5 items.
 
-strengths — highlight what genuinely differentiates this candidate.
-  → Be specific and reference actual content from the CV.
+strengths — what genuinely differentiates this candidate FOR THIS SPECIFIC ROLE.
+  → Be specific, reference actual CV content.
+  → Do NOT list strengths unrelated to the requirements.
   → Maximum 5-6 items.
 
-risks — be honest but fair. Only flag real risks relevant to this specific role.
-  → Do not repeat what is already in missing_skills or experience_gaps.
+risks — honest, fair assessment of real risks for this specific role.
+  → Do not repeat missing_skills or experience_gaps.
   → Maximum 4-5 items.
 
 tailoring_suggestions — concrete, actionable advice to improve the CV for this specific offer.
@@ -191,7 +242,7 @@ tailoring_suggestions — concrete, actionable advice to improve the CV for this
   → Maximum 6 items.
 
 ━━━ LANGUAGE RULE ━━━
-Write everything in the same language as the job offer (French if French, English if English).
+Write everything in the same language as the requirements (French if French, English if English).
 """
 
 
@@ -199,7 +250,7 @@ Write everything in the same language as the job offer (French if French, Englis
 # API calls
 # ---------------------------------------------------------------------------
 
-def _call_mistral(prompt: str) -> str:
+def _call_mistral(prompt: str, system_prompt: str) -> str:
     from mistralai.client import Mistral
     api_key = _get_mistral_key()
     if not api_key:
@@ -208,7 +259,7 @@ def _call_mistral(prompt: str) -> str:
     response = client.chat.complete(
         model=MISTRAL_MODEL,
         messages=[
-            {"role": "system", "content": MATCH_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user",   "content": prompt},
         ],
         response_format={"type": "json_object"},
@@ -217,7 +268,7 @@ def _call_mistral(prompt: str) -> str:
     return response.choices[0].message.content
 
 
-def _call_claude(prompt: str) -> str:
+def _call_claude(prompt: str, system_prompt: str) -> str:
     from anthropic import Anthropic
     api_key = _get_claude_key()
     if not api_key:
@@ -226,21 +277,109 @@ def _call_claude(prompt: str) -> str:
     message = client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=4096,
-        system=MATCH_SYSTEM_PROMPT,
+        system=system_prompt,
         messages=[{"role": "user", "content": prompt}],
     )
     return message.content[0].text
 
 
-def _call_ai(prompt: str, provider: str = None) -> str:
+def _call_ai(prompt: str, system_prompt: str, provider: str = None) -> str:
     """Route to the correct AI provider."""
     p = (provider or AI_PROVIDER).lower()
     if p == "mistral":
-        return _call_mistral(prompt)
+        return _call_mistral(prompt, system_prompt)
     elif p == "claude":
-        return _call_claude(prompt)
+        return _call_claude(prompt, system_prompt)
     else:
         raise ValueError(f"Fournisseur IA inconnu: '{p}'. Utilisez 'mistral' ou 'claude'.")
+
+
+# ---------------------------------------------------------------------------
+# JSON parsing helper
+# ---------------------------------------------------------------------------
+
+def _parse_json_response(raw: str) -> dict:
+    """Safely parse a JSON response from the LLM."""
+    cleaned = raw.strip()
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        match = re.search(r"\{[\s\S]*\}", cleaned)
+        if match:
+            return json.loads(match.group())
+        raise ValueError(f"Impossible de parser le JSON: {raw[:300]}")
+
+
+# ---------------------------------------------------------------------------
+# Step 1: Extract requirements
+# ---------------------------------------------------------------------------
+
+def extract_offer_requirements(offer_text: str, provider: str = None) -> dict:
+    """Step 1: Extract structured requirements from a job offer."""
+    prompt = f"""Extract the requirements from this job offer.
+
+--- JOB OFFER ---
+{offer_text}
+
+Return ONLY the JSON object with the structured requirements."""
+
+    raw = _call_ai(prompt, system_prompt=EXTRACT_SYSTEM_PROMPT, provider=provider)
+    return _parse_json_response(raw)
+
+
+# ---------------------------------------------------------------------------
+# Step 2 helper: format requirements for the matching prompt
+# ---------------------------------------------------------------------------
+
+def _requirements_to_text(reqs: dict) -> str:
+    """Format extracted requirements as readable text for the matching prompt."""
+    parts = []
+
+    title = reqs.get("job_title", "")
+    if title:
+        parts.append(f"JOB TITLE: {title}")
+
+    skills = reqs.get("required_skills", [])
+    if skills:
+        parts.append(f"REQUIRED SKILLS: {', '.join(skills)}")
+
+    tools = reqs.get("tools_and_platforms", [])
+    if tools:
+        parts.append(f"REQUIRED TOOLS & PLATFORMS: {', '.join(tools)}")
+
+    exp = reqs.get("required_experience", {})
+    if isinstance(exp, dict):
+        years = exp.get("years", "")
+        if years:
+            parts.append(f"REQUIRED EXPERIENCE: {years}")
+        domains = exp.get("domains", [])
+        if domains:
+            parts.append(f"REQUIRED DOMAINS: {', '.join(domains)}")
+        tasks = exp.get("specific_tasks", [])
+        if tasks:
+            parts.append(f"REQUIRED TASKS/RESPONSIBILITIES:")
+            for t in tasks:
+                parts.append(f"  • {t}")
+
+    edu = reqs.get("required_education", [])
+    if edu:
+        parts.append(f"REQUIRED EDUCATION: {', '.join(edu)}")
+
+    langs = reqs.get("required_languages", [])
+    if langs:
+        parts.append(f"REQUIRED LANGUAGES: {', '.join(langs)}")
+
+    soft = reqs.get("soft_skills", [])
+    if soft:
+        parts.append(f"REQUIRED SOFT SKILLS: {', '.join(soft)}")
+
+    nice = reqs.get("nice_to_have", [])
+    if nice:
+        parts.append(f"NICE TO HAVE: {', '.join(nice)}")
+
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -248,31 +387,21 @@ def _call_ai(prompt: str, provider: str = None) -> str:
 # ---------------------------------------------------------------------------
 
 def _parse_match_response(raw: str, candidate_name: str = "") -> MatchResult:
-    cleaned = raw.strip()
-    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-    cleaned = re.sub(r"\s*```$", "", cleaned)
-
     try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError:
-        match = re.search(r"\{[\s\S]*\}", cleaned)
-        if match:
-            data = json.loads(match.group())
-        else:
-            return MatchResult(
-                candidate_name=candidate_name,
-                overall_score=0,
-                summary=f"Erreur : impossible d'analyser la réponse. Brut : {raw[:200]}",
-            )
+        data = _parse_json_response(raw)
+    except ValueError:
+        return MatchResult(
+            candidate_name=candidate_name,
+            overall_score=0,
+            summary=f"Erreur : impossible d'analyser la réponse. Brut : {raw[:200]}",
+        )
 
     # ── Post-processing: remove duplicates between matched and missing ──
     matched = data.get("matched_skills", [])
     missing = data.get("missing_skills", [])
 
-    # Normalize for comparison (lowercase, strip)
     matched_norm = {s.lower().strip() for s in matched}
 
-    # Remove from missing anything that's already in matched (exact or substring match)
     def _is_duplicate(skill: str, matched_set: set) -> bool:
         s = skill.lower().strip()
         return s in matched_set or any(s in m or m in s for m in matched_set)
@@ -304,20 +433,31 @@ def match_cv(
     api_key: str = "",
     model: str = "",
     provider: str = None,
+    offer_requirements: dict = None,
 ) -> MatchResult:
-    """Score a single CV against a job offer."""
-    cv_text = _cv_to_text(cv)
-    prompt = f"""Analyze the compatibility between this CV and job offer.
+    """Score a single CV against a job offer (two-step).
 
---- CV ---
+    If offer_requirements is provided, skip Step 1 (useful for batch ranking).
+    """
+    # Step 1: Extract requirements (or reuse if already extracted)
+    if offer_requirements is None:
+        offer_requirements = extract_offer_requirements(offer_text, provider=provider)
+
+    # Step 2: Match CV against requirements
+    cv_text = _cv_to_text(cv)
+    reqs_text = _requirements_to_text(offer_requirements)
+
+    prompt = f"""Evaluate this CV against the following job requirements.
+
+--- EXTRACTED JOB REQUIREMENTS ---
+{reqs_text}
+
+--- CANDIDATE CV ---
 {cv_text}
 
---- JOB OFFER ---
-{offer_text}
+Match the CV STRICTLY against the requirements above. Only consider skills and experience that the requirements actually ask for. Provide your analysis as a JSON object."""
 
-Provide your analysis as a JSON object following the specified format."""
-
-    raw_response = _call_ai(prompt, provider=provider)
+    raw_response = _call_ai(prompt, system_prompt=MATCH_SYSTEM_PROMPT, provider=provider)
     return _parse_match_response(raw_response, candidate_name=cv.profile.name)
 
 
@@ -329,14 +469,25 @@ def rank_cvs(
     provider: str = None,
     progress_callback=None,
 ) -> RankingResult:
-    """Rank multiple CVs against one job offer."""
+    """Rank multiple CVs against one job offer.
+
+    Step 1 runs once; Step 2 runs per CV.
+    """
+    # Step 1: Extract requirements ONCE for all CVs
+    offer_requirements = extract_offer_requirements(offer_text, provider=provider)
+
     results = []
     total = len(cvs)
 
     for i, (filename, cv) in enumerate(cvs):
         if progress_callback:
             progress_callback(i, total)
-        result = match_cv(cv, offer_text, provider=provider)
+        # Step 2: Match each CV against the same requirements
+        result = match_cv(
+            cv, offer_text,
+            provider=provider,
+            offer_requirements=offer_requirements,
+        )
         if not result.candidate_name or result.candidate_name == "Inconnu":
             result.candidate_name = cv.profile.name or filename
         results.append(result)
@@ -392,11 +543,22 @@ if __name__ == "__main__":
 
     print(f"📄 CV : {cv.profile.name}")
     print(f"🤖 Fournisseur : {provider.upper()}")
-    print(f"🔍 Analyse en cours...\n")
 
-    result = match_cv(cv, offer_text, provider=provider)
+    # Step 1
+    print(f"\n🔍 Étape 1 : Extraction des exigences de l'offre...")
+    reqs = extract_offer_requirements(offer_text, provider=provider)
+    print(f"   ✅ {len(reqs.get('required_skills', []))} compétences requises extraites")
+    print(f"   ✅ {len(reqs.get('tools_and_platforms', []))} outils/plateformes extraits")
+    if reqs.get("required_skills"):
+        print(f"   📋 Compétences : {', '.join(reqs['required_skills'])}")
+    if reqs.get("tools_and_platforms"):
+        print(f"   🔧 Outils : {', '.join(reqs['tools_and_platforms'])}")
 
-    print(f"{'='*60}")
+    # Step 2
+    print(f"\n🔍 Étape 2 : Matching CV ↔ Exigences...")
+    result = match_cv(cv, offer_text, provider=provider, offer_requirements=reqs)
+
+    print(f"\n{'='*60}")
     print(f"  RÉSULTAT : {result.candidate_name}")
     print(f"  SCORE GLOBAL : {result.overall_score}/100")
     print(f"{'='*60}")
