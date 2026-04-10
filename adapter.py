@@ -4,10 +4,6 @@ from parser import get_savoir_faire, parse_cv
 from parser_v2 import ParsedCV, ProfileData, Section, ExperienceBlock, TableRow
 
 
-# ---------------------------------------------------------------------------
-# Duration calculation — converts date ranges to "Durée X ans Y mois"
-# ---------------------------------------------------------------------------
-
 MONTHS_MAP = {
     "jan": 1, "janv": 1, "janvier": 1,
     "fev": 2, "fév": 2, "fevr": 2, "févr": 2, "fevrier": 2, "février": 2,
@@ -51,7 +47,6 @@ def _parse_date_piece(piece: str):
 
 
 def _compute_duration(dates: str) -> str:
-    """Convert a date range string to 'Durée X ans Y mois' format."""
     if not dates or not dates.strip():
         return ""
 
@@ -101,10 +96,6 @@ def _compute_duration(dates: str) -> str:
     return f"Durée {cleaned}"
 
 
-# ---------------------------------------------------------------------------
-# Experience → ExperienceBlock conversion
-# ---------------------------------------------------------------------------
-
 def _clean_text(text: str) -> str:
     """Strip trailing pipes, dashes, colons, bullets, duration brackets from text."""
     if not text:
@@ -123,7 +114,6 @@ def _clean_text(text: str) -> str:
 
 
 def _looks_like_company(text: str) -> bool:
-    """Heuristic: does this text look more like a company name than a job title?"""
     if not text:
         return False
     # Companies: often ALL CAPS, or end with SA, SAS, SARL, Group, etc.
@@ -139,7 +129,6 @@ def _looks_like_company(text: str) -> bool:
 
 
 def _looks_like_title(text: str) -> bool:
-    """Heuristic: does this text look like a job title?"""
     if not text:
         return False
     title_keywords = [
@@ -154,13 +143,6 @@ def _looks_like_title(text: str) -> bool:
 
 
 def _guess_company_and_title(exp: Experience) -> tuple[str, str]:
-    """Separate company from title.
-
-    The parser stores company and title separately, but sometimes:
-    - company is empty and title has "Company – Title"
-    - company is empty and title is actually the company name
-    - title has a duration parenthetical instead of real content
-    """
     company = _clean_text(exp.company)
     title = _clean_text(exp.title)
 
@@ -240,16 +222,6 @@ def _guess_company_and_title(exp: Experience) -> tuple[str, str]:
 
 
 def _experience_to_block(exp: Experience) -> ExperienceBlock:
-    """Convert a parsed Experience to an INTM ExperienceBlock.
-
-    INTM format:
-      Titre Référence: "Entreprise COMPANY_NAME\\tDurée DURATION"
-      Heading 3:       "Poste JOB_TITLE"
-      Heading 4:       "ROLE :"
-      List Bullet:     task items
-      Heading 4:       "Environnement technique :"
-      List Bullet:     stack items
-    """
     company, title = _guess_company_and_title(exp)
 
     # --- Build the title line: "Entreprise COMPANY\tDurée DURATION" ---
@@ -285,10 +257,6 @@ def _experience_to_block(exp: Experience) -> ExperienceBlock:
         sub_sections=sub_sections,
     )
 
-
-# ---------------------------------------------------------------------------
-# Full CV conversion
-# ---------------------------------------------------------------------------
 
 def cvdata_to_parsed(cv: CVData, savoir_faire: list[str] | None = None) -> ParsedCV:
     result = ParsedCV()

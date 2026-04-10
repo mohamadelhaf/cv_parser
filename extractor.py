@@ -92,11 +92,6 @@ def _fix_glued_words(text: str) -> str:
 
 
 def _fix_triple_chars(text: str) -> str:
-    """Fix PDF rendering that triples each character.
-
-    Some PDFs produce output like "HHHaaafffiiiddd" for "Hafid".
-    This detects and collapses triple-character patterns.
-    """
     lines = text.split("\n")
     result = []
     for line in lines:
@@ -150,7 +145,6 @@ def _fix_triple_chars(text: str) -> str:
 
 
 def _strip_hellowork_header(text: str) -> str:
-    """Remove the Hellowork disclaimer that appears at top of each page."""
     lines = text.split("\n")
     result = []
     for line in lines:
@@ -162,11 +156,6 @@ def _strip_hellowork_header(text: str) -> str:
 
 
 def _strip_repeated_page_headers(text: str) -> str:
-    """Remove repeated name/title lines that appear at the top of each page.
-
-    Heuristic: if the same short line (< 60 chars) appears 3+ times,
-    it's likely a page header. Remove all occurrences after the first.
-    """
     lines = text.split("\n")
     if len(lines) < 20:
         return text
@@ -200,11 +189,6 @@ def _strip_repeated_page_headers(text: str) -> str:
 
 
 def _strip_cv_page_header(text: str) -> str:
-    """Remove 'CV Firstname LASTNAME ...' lines that repeat as page headers.
-
-    E.g. 'CV Issam LAOUDI Consultant senior Mainframe Cobol' appearing
-    at the top of every page.
-    """
     lines = text.split("\n")
     if len(lines) < 10:
         return text
@@ -357,11 +341,6 @@ def _hybrid_line_merge(plumber_text: str, pypdf_text: str) -> str:
 
 
 def _merge_broken_headers(text: str) -> str:
-    """Merge section headers that are split across two lines by PDF extraction.
-
-    E.g. "C\\nompétences" → "Compétences", "E\\nXPERIENCES" → "EXPERIENCES",
-    "EXPÉRIENCES\\nPROFESSIONNELLES" → "EXPÉRIENCES PROFESSIONNELLES"
-    """
     # Known section header fragments that might get split
     # Format: (first_line_regex, second_line_regex) → these get merged
     splits = [
@@ -406,11 +385,6 @@ def _merge_broken_headers(text: str) -> str:
 
 
 def _merge_broken_date_ranges(text: str) -> str:
-    """Merge date ranges that are split across lines with a trailing dash.
-
-    E.g. "12/2022-\\n12/2025" → "12/2022- 12/2025"
-    Also: "12/2022-  Groupe BPCE\\n12/2025" → needs the dates rejoined
-    """
     lines = text.split("\n")
     result = []
     i = 0
@@ -433,14 +407,6 @@ def _merge_broken_date_ranges(text: str) -> str:
 
 
 def _strip_private_use_chars(text: str) -> str:
-    """Replace Private Use Area characters (U+E000–U+F8FF) with safe equivalents.
-
-    PDF extraction from Symbol/Wingdings fonts produces chars like:
-    - 0xF0A7 (§ in Symbol) → use as bullet marker
-    - 0xF0B7 (• in Symbol) → use as bullet marker  
-    - 0xF0D8 (arrow in Symbol) → strip
-    These render as box-with-question-mark in Word.
-    """
     result = []
     for ch in text:
         cp = ord(ch)
@@ -545,7 +511,6 @@ def extract_from_docx(path: str) -> str:
 
 
 def extract_from_txt(path: str) -> str:
-    """Read plain text file."""
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 

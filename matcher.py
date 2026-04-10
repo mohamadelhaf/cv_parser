@@ -1,15 +1,3 @@
-"""
-CV ↔ Job Offer Matcher (v2 — Two-Step)
-=======================================
-Supports both Mistral and Claude APIs — switch with the AI_PROVIDER setting.
-
-Two-step matching:
-  Step 1: Extract structured requirements from the job offer (once)
-  Step 2: Match the CV strictly against those extracted requirements
-
-This prevents the LLM from listing CV skills that the offer never asked for.
-"""
-
 import json
 import os
 import re
@@ -18,20 +6,12 @@ from dataclasses import dataclass, field
 from parser_v2 import ParsedCV, Section, ExperienceBlock
 
 
-# ---------------------------------------------------------------------------
-# ⚙️  CONFIGURATION — switch provider here
-# ---------------------------------------------------------------------------
-
 # Options: "mistral" or "claude"
 AI_PROVIDER = "mistral"
 
 MISTRAL_MODEL = "mistral-medium-latest"
 CLAUDE_MODEL  = "claude-sonnet-4-20250514"
 
-
-# ---------------------------------------------------------------------------
-# Data structures
-# ---------------------------------------------------------------------------
 
 @dataclass
 class MatchResult:
@@ -54,10 +34,6 @@ class RankingResult:
     ranked_candidates: list[MatchResult] = field(default_factory=list)
 
 
-# ---------------------------------------------------------------------------
-# API key helpers
-# ---------------------------------------------------------------------------
-
 def _get_mistral_key() -> str:
     try:
         import streamlit as st
@@ -75,10 +51,6 @@ def _get_claude_key() -> str:
         pass
     return os.environ.get("ANTHROPIC_API_KEY", "")
 
-
-# ---------------------------------------------------------------------------
-# CV → text
-# ---------------------------------------------------------------------------
 
 def _cv_to_text(cv: ParsedCV) -> str:
     parts = []
@@ -111,10 +83,6 @@ def _cv_to_text(cv: ParsedCV) -> str:
 
     return "\n".join(parts)
 
-
-# ===========================================================================
-# STEP 1 — Extract structured requirements from the offer
-# ===========================================================================
 
 EXTRACT_SYSTEM_PROMPT = """You are an expert HR analyst. You receive a job offer / job description.
 
@@ -154,10 +122,6 @@ JSON structure:
 Write everything in the same language as the job offer.
 """
 
-
-# ===========================================================================
-# STEP 2 — Match CV against extracted requirements
-# ===========================================================================
 
 MATCH_SYSTEM_PROMPT = """You are an expert HR/recruitment analyst. You receive:
 1. A candidate's CV
@@ -246,10 +210,6 @@ Write everything in the same language as the requirements (French if French, Eng
 """
 
 
-# ---------------------------------------------------------------------------
-# API calls
-# ---------------------------------------------------------------------------
-
 def _call_mistral(prompt: str, system_prompt: str) -> str:
     from mistralai.client import Mistral
     api_key = _get_mistral_key()
@@ -284,7 +244,6 @@ def _call_claude(prompt: str, system_prompt: str) -> str:
 
 
 def _call_ai(prompt: str, system_prompt: str, provider: str = None) -> str:
-    """Route to the correct AI provider."""
     p = (provider or AI_PROVIDER).lower()
     if p == "mistral":
         return _call_mistral(prompt, system_prompt)
@@ -294,12 +253,7 @@ def _call_ai(prompt: str, system_prompt: str, provider: str = None) -> str:
         raise ValueError(f"Fournisseur IA inconnu: '{p}'. Utilisez 'mistral' ou 'claude'.")
 
 
-# ---------------------------------------------------------------------------
-# JSON parsing helper
-# ---------------------------------------------------------------------------
-
 def _parse_json_response(raw: str) -> dict:
-    """Safely parse a JSON response from the LLM."""
     cleaned = raw.strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
     cleaned = re.sub(r"\s*```$", "", cleaned)
@@ -311,10 +265,6 @@ def _parse_json_response(raw: str) -> dict:
             return json.loads(match.group())
         raise ValueError(f"Impossible de parser le JSON: {raw[:300]}")
 
-
-# ---------------------------------------------------------------------------
-# Step 1: Extract requirements
-# ---------------------------------------------------------------------------
 
 def extract_offer_requirements(offer_text: str, provider: str = None) -> dict:
     """Step 1: Extract structured requirements from a job offer."""
@@ -329,12 +279,7 @@ Return ONLY the JSON object with the structured requirements."""
     return _parse_json_response(raw)
 
 
-# ---------------------------------------------------------------------------
-# Step 2 helper: format requirements for the matching prompt
-# ---------------------------------------------------------------------------
-
 def _requirements_to_text(reqs: dict) -> str:
-    """Format extracted requirements as readable text for the matching prompt."""
     parts = []
 
     title = reqs.get("job_title", "")
@@ -382,10 +327,6 @@ def _requirements_to_text(reqs: dict) -> str:
     return "\n".join(parts)
 
 
-# ---------------------------------------------------------------------------
-# Response parsing
-# ---------------------------------------------------------------------------
-
 def _parse_match_response(raw: str, candidate_name: str = "") -> MatchResult:
     try:
         data = _parse_json_response(raw)
@@ -422,10 +363,6 @@ def _parse_match_response(raw: str, candidate_name: str = "") -> MatchResult:
         detail_scores=data.get("detail_scores", {}),
     )
 
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 def match_cv(
     cv: ParsedCV,
@@ -500,10 +437,6 @@ def rank_cvs(
 
     return RankingResult(offer_title=offer_title, ranked_candidates=results)
 
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     import sys

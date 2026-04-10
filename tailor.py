@@ -1,14 +1,3 @@
-"""
-tailor.py — Adapter un ParsedCV pour mieux correspondre à une offre d'emploi.
-
-Règles :
-- JAMAIS inventer de compétences, expériences ou formations.
-- UNIQUEMENT reformuler, réorganiser et mettre en valeur le contenu existant.
-- Utiliser le vocabulaire de l'offre quand c'est honnête.
-- Réordonner les bullet points pour mettre les plus pertinents en premier.
-- Adapter le titre du profil si c'est honnête.
-"""
-
 import os
 import re
 import json
@@ -18,12 +7,7 @@ from parser_v2 import (
 )
 
 
-# ---------------------------------------------------------------------------
-# CV → texte lisible pour le prompt
-# ---------------------------------------------------------------------------
-
 def _cv_to_text(cv: ParsedCV) -> str:
-    """Sérialise un ParsedCV en texte lisible pour le LLM."""
     lines = []
     p = cv.profile
     lines.append(f"NOM: {p.name}")
@@ -57,10 +41,6 @@ def _cv_to_text(cv: ParsedCV) -> str:
 
     return "\n".join(lines)
 
-
-# ---------------------------------------------------------------------------
-# Prompts
-# ---------------------------------------------------------------------------
 
 TAILOR_SYSTEM_PROMPT = """Tu es un expert en rédaction de CV et en recrutement IT.
 Ta mission : adapter un CV existant pour maximiser sa compatibilité avec une offre d'emploi donnée.
@@ -143,12 +123,7 @@ IMPORTANT sur sub_sections : CONSERVER les mêmes noms de sous-sections que dans
 """
 
 
-# ---------------------------------------------------------------------------
-# Parsing de la réponse JSON
-# ---------------------------------------------------------------------------
-
 def _parse_json_response(text: str) -> dict:
-    """Extrait et parse le JSON de la réponse du LLM."""
     text = text.strip()
     # Supprimer les éventuels code fences markdown
     text = re.sub(r"^```(?:json)?\s*\n?", "", text)
@@ -166,12 +141,6 @@ def _parse_json_response(text: str) -> dict:
 
 
 def _fix_title_line(raw: str) -> str:
-    """Post-process a title_line to ensure proper INTM format.
-    
-    The LLM often fails to produce a real \\t character in JSON.
-    This function normalizes various formats into:
-      "Entreprise NAME\\tDurée X ans Y mois : AAAA – AAAA"
-    """
     if not raw or not raw.strip():
         return raw
     
@@ -234,7 +203,6 @@ def _fix_title_line(raw: str) -> str:
 
 
 def _dict_to_parsed_cv(data: dict) -> ParsedCV:
-    """Convertit le dict JSON en objet ParsedCV."""
     profile_data = data.get("profile", {})
     profile = ProfileData(
         lines=[
@@ -301,10 +269,6 @@ def _dict_to_parsed_cv(data: dict) -> ParsedCV:
 
     return ParsedCV(profile=profile, sections=sections)
 
-
-# ---------------------------------------------------------------------------
-# Fonction principale
-# ---------------------------------------------------------------------------
 
 def tailor_cv(
     cv: ParsedCV,

@@ -106,7 +106,6 @@ def _set_run(run, *, bold=None, italic=None, size=None, color=None, caps=None):
 
 
 def _style_name(doc, preferred, fallback="Normal"):
-    """Find a style in the document, trying French equivalents if English not found."""
     # French ↔ English style name equivalents
     _FR_EQUIVALENTS = {
         "Heading 1": "Titre 1",
@@ -150,7 +149,6 @@ def _prompt_with_default(label: str, current_value: str = "") -> str:
 
 
 def _add_spacer(doc, count=3):
-    """Add empty paragraphs between sections to match the template spacing."""
     spacer_style = _style_name(doc, "Profil : Experience", "Normal")
     for _ in range(count):
         p = doc.add_paragraph(style=spacer_style)

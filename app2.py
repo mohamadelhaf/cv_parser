@@ -10,10 +10,6 @@ load_dotenv()
 st.set_page_config(page_title="DDC Lab", page_icon="📄", layout="wide")
 
 
-# ═══════════════════════════════════════════════════════════════════
-# Helpers partagés
-# ═══════════════════════════════════════════════════════════════════
-
 def is_intm_format(file_bytes: bytes) -> bool:
     try:
         with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
@@ -38,7 +34,6 @@ def save_temp(file_bytes: bytes, suffix: str) -> str:
 
 
 def parse_cv_file(file_bytes: bytes, filename: str):
-    """Parse un fichier CV (tout format) en objet ParsedCV."""
     ext = os.path.splitext(filename)[1].lower()
     tmp_path = save_temp(file_bytes, ext)
 
@@ -51,7 +46,6 @@ def parse_cv_file(file_bytes: bytes, filename: str):
 
 
 def extract_offer_text(offer_file=None, offer_text_input=""):
-    """Récupère le texte de l'offre depuis un fichier ou un champ texte."""
     if offer_file is not None:
         ext = os.path.splitext(offer_file.name)[1].lower()
         tmp_path = save_temp(offer_file.getvalue(), ext)
@@ -68,10 +62,6 @@ def generate_output(cv, template_path: str) -> bytes:
     with open(output_path, "rb") as f:
         return f.read()
 
-
-# ═══════════════════════════════════════════════════════════════════
-# Barre latérale — Sélecteur de mode + Clé API
-# ═══════════════════════════════════════════════════════════════════
 
 st.sidebar.title("📄 DDC Lab")
 
@@ -93,10 +83,6 @@ if mode in ["🎯 Matcher CV ↔ Offre", "📊 Classer les CVs"]:
         st.sidebar.error("❌ Clé API manquante — ajoutez ANTHROPIC_API_KEY dans votre fichier .env")
     st.sidebar.divider()
 
-
-# ═══════════════════════════════════════════════════════════════════
-# MODE 1 : Convertir CV (flux existant — inchangé)
-# ═══════════════════════════════════════════════════════════════════
 
 if mode == "🔄 Convertir CV":
     st.sidebar.markdown("Convertir n'importe quel CV au format INTM")
@@ -481,10 +467,6 @@ if mode == "🔄 Convertir CV":
                     st.exception(e)
 
 
-# ═══════════════════════════════════════════════════════════════════
-# Helpers UI partagés pour les résultats de matching
-# ═══════════════════════════════════════════════════════════════════
-
 def _score_color(score: int) -> str:
     if score >= 85:
         return "🟢"
@@ -510,7 +492,6 @@ def _score_label(score: int) -> str:
 
 
 def _render_score_bar(label: str, score: int):
-    """Affiche une barre de progression colorée avec un label."""
     color = (
         "#1D9E75" if score >= 85
         else "#378ADD" if score >= 70
@@ -536,7 +517,6 @@ def _render_score_bar(label: str, score: int):
 
 
 def _render_match_result(result, expanded=True):
-    """Affiche un MatchResult complet dans l'UI."""
     score = result.overall_score
     emoji = _score_color(score)
     label = _score_label(score)
@@ -612,7 +592,6 @@ def _render_match_result(result, expanded=True):
 
 
 def _render_offer_input(key_prefix: str):
-    """Affiche l'entrée de l'offre (téléversement OU copier-coller) et retourne le texte."""
     offer_method = st.radio(
         "Comment fournir l'offre d'emploi :",
         ["📄 Téléverser un fichier", "📝 Coller le texte"],
@@ -644,10 +623,6 @@ def _render_offer_input(key_prefix: str):
 
     return offer_text
 
-
-# ═══════════════════════════════════════════════════════════════════
-# MODE 2 : Matcher un CV ↔ une Offre
-# ═══════════════════════════════════════════════════════════════════
 
 if mode == "🎯 Matcher CV ↔ Offre":
 
@@ -817,11 +792,9 @@ if mode == "🎯 Matcher CV ↔ Offre":
             st.caption("Les éléments modifiés sont surlignés en 🟡 jaune.")
 
             def _hl(text: str) -> str:
-                """Wrap text in a yellow highlight span."""
                 return f'<span style="background-color: #FFF3CD; padding: 2px 4px; border-radius: 3px;">{text}</span>'
 
             def _render_text(new: str, old: str) -> str:
-                """Return highlighted HTML if changed, plain text otherwise."""
                 if new.strip() != old.strip():
                     return _hl(new)
                 return new
@@ -943,10 +916,6 @@ if mode == "🎯 Matcher CV ↔ Offre":
                                     else:
                                         st.markdown(f"  • {item}")
 
-
-# ═══════════════════════════════════════════════════════════════════
-# MODE 3 : Classer plusieurs CVs face à une offre
-# ═══════════════════════════════════════════════════════════════════
 
 if mode == "📊 Classer les CVs":
 
