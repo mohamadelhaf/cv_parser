@@ -9,7 +9,7 @@ from pathlib import Path
 from parser_v2 import ParsedCV, ProfileData, Section, ExperienceBlock, TableRow
 
 
-MISTRAL_MODEL = "mistral-small-latest"
+MISTRAL_MODEL = "mistral-medium-2508"
 CACHE_DIR     = Path(".cache/mistral")
 
 

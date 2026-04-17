@@ -9,7 +9,7 @@ from parser_v2 import ParsedCV, Section, ExperienceBlock
 # Options: "mistral" or "claude"
 AI_PROVIDER = "mistral"
 
-MISTRAL_MODEL = "mistral-medium-latest"
+MISTRAL_MODEL = "mistral-medium-2508"
 CLAUDE_MODEL  = "claude-sonnet-4-20250514"
 
 
