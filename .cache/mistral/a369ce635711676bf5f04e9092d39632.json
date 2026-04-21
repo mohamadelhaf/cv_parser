@@ -1,0 +1,241 @@
+{
+  "name": "Niffa DIABY",
+  "title": "Ingénieur Sécurité Opérationnelle (Sec Ops)",
+  "language": "Français",
+  "years_experience": "10+ ans",
+  "profile": "Ingénieur en cybersécurité avec une expertise en sécurité opérationnelle, architecture sécurisée, gestion des vulnérabilités et réponse aux incidents. Spécialisé dans les environnements cloud (Microsoft Azure, AWS), les architectures Zero Trust, et les frameworks de sécurité (ISO 27001, NIST, CIS, ANSSI). Expérience en pilotage de stratégies de sécurité, audits techniques, et formation des équipes.",
+  "savoir_faire": [
+    "Architecture sécurisée Cloud (Azure, AWS)",
+    "Gestion des vulnérabilités et remédiation",
+    "Réponse aux incidents de sécurité (SOC)",
+    "Pentests et évaluation des risques",
+    "Veille proactive sur les menaces (CVE, KEV, OSINT)",
+    "Formation et sensibilisation en cybersécurité"
+  ],
+  "skills": [
+    {
+      "category": "Cloud & Sécurité Cloud",
+      "details": "Microsoft Azure Security Architecture, Secure Cloud Design, Landing Zones, Zero Trust Architecture, Identity Governance, Azure Policy, Microsoft Entra ID (Azure AD), Microsoft Intune, Microsoft Purview, Microsoft Defender For Cloud, Microsoft Defender For Cloud Apps, Microsoft Defender For End Point, Microsoft Defender For Identity, Microsoft Defender For Office, Azure Firewall, WAF, NSG, Private Endpoints, Segmentation, CSPM, CASB, AWS, OVH"
+    },
+    {
+      "category": "Outils de Sécurité",
+      "details": "Checkpoint, F5 Big-IP, Zscaler, Wallix Bastion, SIEM (Microsoft Sentinel, Splunk), EDR (Sentinel One, Crowdstrike, ESET, Kaspersky, Microsoft Defender For End Point), EPP (ESET, Kaspersky, Checkpoint), Tenable, Qualys, Hybride Analyst, Burpsuite, Nmap, Microsoft Sentinel, Microsoft Defender For Cloud Apps"
+    },
+    {
+      "category": "Méthodologies & Normes",
+      "details": "ISO 27001, NIST, CIS, ANSSI, PTES, MITRE ATT&CK, Risk Management Framework (NIST 800-53)"
+    },
+    {
+      "category": "Langages & Systèmes",
+      "details": "Windows Workstation & Servers, Linux"
+    },
+    {
+      "category": "Autres Compétences",
+      "details": "Pentests, Vulnérabilités, SOC, PAM, DevSecOps, Cyber Threat Intelligence (CTI), OSINT"
+    }
+  ],
+  "languages": [
+    {
+      "language": "Français",
+      "level": "Natif"
+    },
+    {
+      "language": "Anglais",
+      "level": "Courant"
+    }
+  ],
+  "education": [
+    {
+      "degree": "Master Réseaux & Télécommunications",
+      "institution": "Groupe IHIEM/SO",
+      "year": "2021",
+      "type": "Master"
+    },
+    {
+      "degree": "Licence Professionnelle Informatique",
+      "institution": "Groupe CSI Pôle-Polytechnique",
+      "year": "2015",
+      "type": "Licence"
+    },
+    {
+      "degree": "Attack IQ – Threat-Informed Architecture & MITRE ATT&CK",
+      "institution": "Attack IQ",
+      "year": "2023",
+      "type": "Certification"
+    },
+    {
+      "degree": "Attack IQ – Top ATT&CK Techniques & MITRE ATT&CK",
+      "institution": "Attack IQ",
+      "year": "2023",
+      "type": "Certification"
+    },
+    {
+      "degree": "Attack IQ – Mapping MITRE ATT&CK to CVE for Impact",
+      "institution": "Attack IQ",
+      "year": "2023",
+      "type": "Certification"
+    },
+    {
+      "degree": "Microsoft Azure Administrator Associate (AZ-104)",
+      "institution": "Microsoft",
+      "year": "2022",
+      "type": "Certification"
+    },
+    {
+      "degree": "Microsoft Azure Security Engineer Associate (AZ-500)",
+      "institution": "Microsoft",
+      "year": "2022",
+      "type": "Certification"
+    },
+    {
+      "degree": "Microsoft Security Operations Analyst Associate (SC-200)",
+      "institution": "Microsoft",
+      "year": "2023",
+      "type": "Certification"
+    },
+    {
+      "degree": "Microsoft Identity & Access Administrator Associate (SC-300)",
+      "institution": "Microsoft",
+      "year": "2023",
+      "type": "Certification"
+    }
+  ],
+  "experiences": [
+    {
+      "company": "OPEN - BU Centre de Production",
+      "role": "Consultant sécurité opérationnelle (vulnérabilités | PAM | VOC)",
+      "dates": "Juin 2025 – Avril 2026",
+      "context": "Dans le cadre d'une restructuration de la pratique de la cybersécurité, le centre de production s'est doté d'une stratégie de sécurité afin de répondre efficacement à la sécurisation des systèmes informatiques sensibles des OIV (Opérateur d'importance Vitale) placés sous la responsabilité du Groupe Open.",
+      "tasks": [
+        "Identification des failles de sécurité sur les outils VOC (collecte et analyse des CVE, KEV, CWE)",
+        "Scan des vulnérabilités au moyen des dispositifs de sécurité",
+        "Analyse des risques opérationnels et priorisation des remédiations",
+        "Mapping de la sévérité des vulnérabilités identifiées avec les tactiques du framework Mitre Att&ck",
+        "Communication et suivi de l'application des mesures de sécurité en collaboration avec les équipes IT, Cloud, Dev",
+        "Pilotage de la feuille de route sécurité (cartographie des risques et des menaces, définition et priorisation des axes de sécurité)",
+        "Évaluation et proposition des actions d'amélioration des activités de sécurité",
+        "Contribution à la qualification des alertes de sécurité et participation à la réponse aux incidents de sécurité",
+        "Pilotage des audits de sécurité (Conformité et Tests d'intrusion) et suivi de l'application des mesures de sécurité",
+        "Animation du comité sécurité et reporting des points traités au RSSI",
+        "Participation à la mise en place des environnements de test (PoC)",
+        "Évaluation technique des solutions de sécurité (PAM) : implémentation, déploiement, activation et test des fonctionnalités, recette technique",
+        "Rédaction des documents associés (DAT, Manuel d'utilisation)",
+        "Renforcement des compétences de l'équipe sécurité et proposition de formations en cybersécurité et cyberdéfense"
+      ],
+      "tech_stack": [
+        "Windows",
+        "Linux",
+        "Microsoft Azure",
+        "Microsoft 365",
+        "AWS",
+        "OVH",
+        "Crowdstrike",
+        "ESET",
+        "Kaspersky",
+        "Tenable",
+        "Qualys",
+        "Systancia"
+      ]
+    },
+    {
+      "company": "SOCIÉTÉ GÉNÉRALE Risk Management",
+      "role": "Référent Cloud Security (Azure)",
+      "dates": "Janvier 2023 – Avril 2025",
+      "context": "Face à l'évolution des menaces et l'accélération de la transformation digitale, une refonte de la stratégie de cybersécurité s'impose à travers une revue et l'amélioration de la pratique de la sécurité au niveau des ressources informatiques hébergées dans le cloud Azure.",
+      "tasks": [
+        "Participation aux analyses de risques sur les projets applicatifs",
+        "Optimisation des architectures : challenger les configurations proposées par les architectes, proposition des mesures de sécurité sur les flux entre les ressources informatiques, proposition de technologies sur la configuration sécurisée avancée, revue, analyse et validation des architectures suivant les exigences de sécurité, support technique sur l'implémentation des architectures",
+        "Évaluation et amélioration des documents de sécurité associés",
+        "Pilotage du plan de remédiation des failles de sécurité identifiées : coordination des actions de revue, priorisation de la correction des vulnérabilités, analyse proactive des points de blocages, animation du comité de sécurité (COPIL), reporting régulier des activités au responsable du pôle sécurité cloud",
+        "Définition et mise en œuvre de la gouvernance sécurité",
+        "Évaluation technique des risques (NIST 800-53)",
+        "Proposition d’actions de remédiation",
+        "Pilotage des audits techniques de sécurité (Pentest Cloud) : benchmark des ressources critiques, identification des systèmes à auditer, mise en œuvre de l'évaluation de sécurité, rédaction et partage des rapports de sécurité, suivi de l'application des recommandations de sécurité",
+        "Communication et suivi de la correction des failles identifiées",
+        "Vulgarisation des bonnes approches de sécurité auprès des architectes et accompagnement sur divers sujets de sécurité (DevSecOps, Cloud Security)"
+      ],
+      "tech_stack": [
+        "Microsoft Azure",
+        "Azure Policy",
+        "Microsoft 365",
+        "Windows",
+        "Linux",
+        "NIST 800-53"
+      ]
+    },
+    {
+      "company": "ANSUT Administration Publique",
+      "role": "Responsable adjoint du Département Sécurité | Tech Lead (SOC | VOC | vulnérabilités | Cloud Security)",
+      "dates": "Septembre 2021 – Janvier 2023",
+      "context": "Rattaché au chef du département sécurité (RSSI), l'agence réactualise sa stratégie de sécurité pour répondre efficacement aux attentes de la direction générale sur les missions de surveillance et de protection des systèmes d'information sensibles des Ministères, Institutions et certaines sociétés d'état.",
+      "tasks": [
+        "Participation à la revue du plan opérationnel de sécurité existant et proposition/priorisation des axes d'amélioration",
+        "Exécution des axes de sécurité prioritaires",
+        "Participation au comité projet de digitalisation et analyse/proposition des mesures d'amélioration des architectures élaborées par l'équipe IT et Cloud",
+        "Vérification de la prise en compte des mesures proposées et revue/validation commune des architectures",
+        "Traitement des incidents de sécurité N2/N3",
+        "Pilotage des audits techniques de sécurité (Pentest)",
+        "Gestion des vulnérabilités (identification, évaluation, classification, priorisation et remédiation)",
+        "Évaluation et amélioration continue de la posture de sécurité des systèmes d'information",
+        "Pilotage de projets sécurité (Security By Design, Cloud Security)",
+        "Veille proactive sur les menaces informatiques",
+        "Formation et sensibilisation des utilisateurs sur les risques liés au numérique"
+      ],
+      "tech_stack": [
+        "Microsoft Azure",
+        "Office 365",
+        "Windows",
+        "Linux",
+        "Burp Suite",
+        "Microsoft Sentinel",
+        "Microsoft Defender For End Point",
+        "Microsoft Defender For Cloud",
+        "Microsoft Defender For Cloud Apps",
+        "Microsoft Defender For Identity",
+        "Microsoft Defender For Office"
+      ]
+    },
+    {
+      "company": "ANSUT Administration Publique",
+      "role": "Ingénieur Sec Ops (Pentests | vulnérabilités | Cloud Security)",
+      "dates": "Novembre 2017 – août 2021",
+      "context": "Rattaché au chef du département sécurité (RSSI), l'agence se dote d'une stratégie de sécurité pour répondre efficacement aux attentes de la direction générale sur les missions de protection des systèmes d'information sensibles des Ministères, Institutions et certaines sociétés d'état.",
+      "tasks": [
+        "Sécurisation des infrastructures hébergées dans le Cloud Azure",
+        "Optimisation de la gestion des identités et des accès aux ressources (RBAC, PIM, Azure Bastion)",
+        "Contribution à la définition du plan opérationnel de sécurité et participation à l'amélioration continue des activités de sécurité",
+        "Gestion des audits techniques de sécurité (Pentests) : rédaction et partage des rapports, suivi de la remédiation des failles de sécurité identifiées",
+        "Participation aux durcissements des systèmes informatiques"
+      ],
+      "tech_stack": [
+        "Microsoft Azure",
+        "Office 365",
+        "Windows",
+        "Linux",
+        "Burp Suite",
+        "Azure AD",
+        "Azure Bastion",
+        "PTES",
+        "CIS"
+      ]
+    },
+    {
+      "company": "ANSUT Administration Publique",
+      "role": "Assistant technique sécurité",
+      "dates": "Septembre 2015 – octobre 2017",
+      "context": "Rattaché au chef du service sécurité, l'agence met en œuvre des activités opérationnelles de sécurité afin de mieux protéger des plateformes applicatives administratives sensibles exposées sur internet.",
+      "tasks": [
+        "Mise en place d'un processus d'intégration de la sécurité dans le cycle de développement des services applicatifs",
+        "Gestion des audits techniques de sécurité (Pentests) : rédaction et partage des rapports, suivi de la remédiation des vulnérabilités identifiées",
+        "Bonnes pratiques de sécurité : formation et sensibilisation du top management et des métiers sur les risques liés au numérique"
+      ],
+      "tech_stack": [
+        "Office 365",
+        "Windows",
+        "Linux",
+        "Burp Suite",
+        "PTES"
+      ]
+    }
+  ]
+}

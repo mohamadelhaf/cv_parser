@@ -9,7 +9,7 @@ from pathlib import Path
 from parser_v2 import ParsedCV, ProfileData, Section, ExperienceBlock, TableRow
 
 
-MISTRAL_MODEL = "mistral-medium-2508"
+MISTRAL_MODEL = "mistral-small-latest"
 CACHE_DIR     = Path(".cache/mistral")
 
 
@@ -109,7 +109,7 @@ def _call_mistral(raw_text: str) -> dict:
         return cached
 
     print(f"   🤖 Appel Mistral ({MISTRAL_MODEL})...")
-    client = Mistral(api_key=api_key)
+    client = Mistral(api_key=api_key, timeout_ms=1200000)
 
     max_chars = 14000
     if len(raw_text) > max_chars:
