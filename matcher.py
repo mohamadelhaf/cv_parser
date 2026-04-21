@@ -215,7 +215,7 @@ def _call_mistral(prompt: str, system_prompt: str) -> str:
     api_key = _get_mistral_key()
     if not api_key:
         raise ValueError("Clé MISTRAL_API_KEY introuvable.")
-    client = Mistral(api_key=api_key)
+    client = Mistral(api_key=api_key, timeout_ms=1200000)
     response = client.chat.complete(
         model=MISTRAL_MODEL,
         messages=[
