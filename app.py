@@ -9,6 +9,8 @@ load_dotenv()
 
 st.set_page_config(page_title="DDC Lab", page_icon="📄", layout="wide")
 
+DEFAULT_TEMPLATE = os.path.join(os.path.dirname(__file__), "template_default.docx")
+
 
 def is_intm_format(file_bytes: bytes) -> bool:
     try:
@@ -16,13 +18,13 @@ def is_intm_format(file_bytes: bytes) -> bool:
             tmp.write(file_bytes)
             tmp_path = tmp.name
         with zipfile.ZipFile(tmp_path) as z:
-            header_rels = [f for f in z.namelist()
-                           if "header" in f.lower() and f.endswith(".rels")]
-            for rel_file in header_rels:
-                content = z.read(rel_file).decode("utf-8")
-                if "image" in content.lower():
-                    return True
-        return False
+            if "word/styles.xml" not in z.namelist():
+                return False
+            styles_xml = z.read("word/styles.xml").decode("utf-8")
+            # Both styles must be present for a real INTM DDC
+            has_titre_ref = "Titre R" in styles_xml  # "Titre Référence"
+            has_profil = "Profil" in styles_xml       # "Profil" or "Profil : Experience"
+            return has_titre_ref and has_profil
     except Exception:
         return False
 
@@ -62,6 +64,12 @@ def generate_output(cv, template_path: str) -> bytes:
     with open(output_path, "rb") as f:
         return f.read()
 
+
+def _has_default_template() -> bool:
+    """Vérifie si le template par défaut est disponible."""
+    return os.path.exists(DEFAULT_TEMPLATE)
+
+
 st.sidebar.title("📄 DDC Lab")
 
 mode = st.sidebar.radio(
@@ -79,7 +87,7 @@ if mode in ["🎯 Matcher CV ↔ Offre", "📊 Classer les CVs"]:
     if api_key:
         st.sidebar.success("✅ Clé API chargée")
     else:
-        st.sidebar.error("❌ Clé API manquante — ajoutez ANTHROPIC_API_KEY dans votre fichier .env")
+        st.sidebar.error("❌ Clé API manquante — ajoutez MISTRAL_API_KEY dans votre fichier .env")
     st.sidebar.divider()
 
 
@@ -106,20 +114,28 @@ if mode == "🔄 Convertir CV":
                 st.sidebar.success("✅ Template INTM détecté")
             else:
                 needs_template = True
-                st.sidebar.info("ℹ️ DOCX classique — téléversez un template ci-dessous")
+                if _has_default_template():
+                    st.sidebar.info("ℹ️ DOCX classique — template par défaut disponible")
+                else:
+                    st.sidebar.info("ℹ️ DOCX classique — téléversez un template ci-dessous")
         elif ext in (".pdf", ".txt", ".md"):
             needs_template = True
-            st.sidebar.info(f"ℹ️ Fichier {ext.upper()} — téléversez un template ci-dessous")
+            if _has_default_template():
+                st.sidebar.info(f"ℹ️ Fichier {ext.upper()} — template par défaut disponible")
+            else:
+                st.sidebar.info(f"ℹ️ Fichier {ext.upper()} — téléversez un template ci-dessous")
 
     if needs_template:
         template_file = st.sidebar.file_uploader(
-            "**Étape 2 :** Téléverser le template INTM",
+            "**Étape 2 :** Template INTM (optionnel)",
             type=["docx"],
             key="template_uploader",
-            help="N'importe quel DOCX INTM existant pour le style",
+            help="Laissez vide pour utiliser le template par défaut",
         )
         if template_file:
-            st.sidebar.success("✅ Template chargé")
+            st.sidebar.success("✅ Template personnalisé chargé")
+        elif _has_default_template():
+            st.sidebar.caption("ℹ️ Template par défaut sera utilisé")
         else:
             st.sidebar.warning("⚠️ Template requis pour générer le fichier")
 
@@ -134,16 +150,24 @@ if mode == "🔄 Convertir CV":
         """)
         st.stop()
 
-    if needs_template and not template_file:
+    if needs_template and not template_file and not _has_default_template():
         st.title("📄 DDC Lab — Convertir")
-        st.info("👈 Téléversez un template DOCX INTM dans la barre latérale pour continuer.")
-        st.markdown("N'importe quel DDC INTM peut servir de template — peu importe à qui il appartient.")
+        st.error(
+            "❌ Aucun template disponible. Téléversez un template DOCX INTM dans la barre latérale, "
+            "ou placez un fichier `template_default.docx` à la racine du projet."
+        )
         st.stop()
 
     # Parsing
     ext = os.path.splitext(uploaded_file.name)[1].lower()
     input_path = save_temp(uploaded_file.getvalue(), ext)
-    template_path = input_path if is_intm else save_temp(template_file.getvalue(), ".docx")
+
+    if is_intm:
+        template_path = input_path
+    elif template_file:
+        template_path = save_temp(template_file.getvalue(), ".docx")
+    else:
+        template_path = DEFAULT_TEMPLATE
 
     try:
         if is_intm:
@@ -633,13 +657,15 @@ if mode == "🎯 Matcher CV ↔ Offre":
     )
 
     match_template_file = st.sidebar.file_uploader(
-        "**Template INTM** (pour adaptation)",
+        "**Template INTM** (optionnel)",
         type=["docx"],
         key="match_template_upload",
-        help="Template DOCX INTM pour générer le CV adapté",
+        help="Laissez vide pour utiliser le template par défaut",
     )
     if match_template_file:
-        st.sidebar.success("✅ Template chargé")
+        st.sidebar.success("✅ Template personnalisé chargé")
+    elif _has_default_template():
+        st.sidebar.caption("ℹ️ Template par défaut sera utilisé pour l'adaptation")
     else:
         st.sidebar.caption("ℹ️ Template optionnel — requis pour générer le CV adapté")
 
@@ -682,7 +708,7 @@ if mode == "🎯 Matcher CV ↔ Offre":
         st.stop()
 
     if not api_key:
-        st.warning("⚠️ Entrez votre clé API Anthropic dans la barre latérale pour lancer le matching.")
+        st.warning("⚠️ Entrez votre clé API dans la barre latérale pour lancer le matching.")
         st.stop()
 
     if st.button("🚀 Lancer le matching", type="primary", use_container_width=True):
@@ -707,7 +733,7 @@ if mode == "🎯 Matcher CV ↔ Offre":
             "la compatibilité avec l'offre. **Aucune compétence ni expérience ne sera inventée.**"
         )
 
-        # Déterminer le template : template uploadé, ou le CV lui-même s'il est INTM
+        # Déterminer le template : uploadé > CV INTM > template par défaut
         _match_template_path = None
         if match_template_file:
             _match_template_path = save_temp(match_template_file.getvalue(), ".docx")
@@ -716,10 +742,14 @@ if mode == "🎯 Matcher CV ↔ Offre":
             if ext_cv == ".docx" and is_intm_format(uploaded_cv.getvalue()):
                 _match_template_path = save_temp(uploaded_cv.getvalue(), ".docx")
 
+        # Fallback au template par défaut
+        if not _match_template_path and _has_default_template():
+            _match_template_path = DEFAULT_TEMPLATE
+
         if not _match_template_path:
             st.warning(
                 "⚠️ Pour générer le CV adapté en DOCX, téléversez un **template INTM** "
-                "dans la barre latérale."
+                "dans la barre latérale ou placez un fichier `template_default.docx` à la racine du projet."
             )
 
         col_adapt, col_dl = st.columns([1, 1])
@@ -970,7 +1000,7 @@ if mode == "📊 Classer les CVs":
         st.stop()
 
     if not api_key:
-        st.warning("⚠️ Entrez votre clé API Anthropic dans la barre latérale pour lancer le classement.")
+        st.warning("⚠️ Entrez votre clé API dans la barre latérale pour lancer le classement.")
         st.stop()
 
     if len(parsed_cvs) == 0:

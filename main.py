@@ -4,15 +4,20 @@ import zipfile
 
 
 def _is_intm_format(path: str) -> bool:
+    """Detect INTM DDC format by checking for INTM-specific Word styles.
+
+    Header images alone are NOT sufficient — many regular CVs have company
+    logos in the header. We check for styles that only exist in real INTM
+    DDC templates: 'Titre Référence' and 'Profil' (or 'Profil : Experience').
+    """
     try:
         with zipfile.ZipFile(path) as z:
-            header_rels = [f for f in z.namelist()
-                           if "header" in f.lower() and f.endswith(".rels")]
-            for rel_file in header_rels:
-                content = z.read(rel_file).decode("utf-8")
-                if "image" in content.lower():
-                    return True
-        return False
+            if "word/styles.xml" not in z.namelist():
+                return False
+            styles_xml = z.read("word/styles.xml").decode("utf-8")
+            has_titre_ref = "Titre R" in styles_xml
+            has_profil = "Profil" in styles_xml
+            return has_titre_ref and has_profil
     except Exception:
         return False
 
@@ -84,7 +89,7 @@ def main():
         print('  python main.py "cv.pdf" "output.docx" "template.docx"')
         print('  python main.py "cv.txt" "output.docx" "template.docx"')
         print()
-        print("INTM DOCX files are auto-detected by their header logo.")
+        print("INTM DOCX files are auto-detected by their styles.")
         print("All other formats require a template DOCX for styling.")
         sys.exit(1)
 
@@ -99,11 +104,11 @@ def main():
 
     if ext == ".docx":
         if _is_intm_format(input_path):
-            print("✅ INTM logo detected in header — using structure-preserving pipeline")
+            print("✅ INTM styles detected — using structure-preserving pipeline")
             template_override = sys.argv[3] if len(sys.argv) > 3 else None
             _run_intm_pipeline(input_path, output_path, template_override)
         else:
-            print("ℹ️  No INTM logo found — using text-based parsing")
+            print("ℹ️  No INTM styles found — using text-based parsing")
             template_path = _ensure_template(sys.argv, position=3)
             _run_text_pipeline(input_path, output_path, template_path)
 

@@ -14,6 +14,7 @@ CACHE_DIR     = Path(".cache/mistral")
 
 
 def _get_api_key() -> str:
+    """Read Mistral API key — works both locally and on Streamlit Cloud."""
     # Streamlit Cloud: secrets are injected via st.secrets
     try:
         import streamlit as st
@@ -91,6 +92,7 @@ Rules:
 - tasks: include ALL bullet points found for each experience
 - education: include EVERYTHING in the formation/education section — university degrees, technical diplomas, bootcamps, AND professional certifications (e.g. ISTQB, COBOL certification, AWS, PMP, etc.). Never drop certifications.
 - if a section is called "Formation et Certifications" or "Certifications" or similar, include ALL items in education
+- CRITICAL: if a company contains multiple projects/missions (e.g. "Projet 1 : TRADE", "Projet 2 : SWIFT Bridge"), each project MUST be a SEPARATE experience entry with the same company name. NEVER merge multiple projects into a single experience. Each project has its own dates, context, tasks, and tech_stack.
 """
 
 
@@ -109,9 +111,9 @@ def _call_mistral(raw_text: str) -> dict:
         return cached
 
     print(f"   🤖 Appel Mistral ({MISTRAL_MODEL})...")
-    client = Mistral(api_key=api_key, timeout_ms=1200000)
+    client = Mistral(api_key=api_key)
 
-    max_chars = 14000
+    max_chars = 50000
     if len(raw_text) > max_chars:
         print(f"   ⚠️  Texte tronqué à {max_chars} caractères")
         raw_text = raw_text[:max_chars]
@@ -139,6 +141,7 @@ def _call_mistral(raw_text: str) -> dict:
 
 
 def _compute_duration(dates: str) -> str:
+    """Convert 'Mars 2022 – Février 2026' to 'Durée 4 ans'."""
     MONTHS = {
         "jan": 1, "janv": 1, "janvier": 1,
         "fev": 2, "fév": 2, "févr": 2, "fevrier": 2, "février": 2,
@@ -335,11 +338,16 @@ def _json_to_parsed_cv(data: dict) -> ParsedCV:
 
 
 def parse_with_mistral(raw_text: str) -> ParsedCV:
+    """
+    Takes raw extracted text, returns ParsedCV.
+    Drop-in replacement for parse_cv() + cvdata_to_parsed().
+    """
     data = _call_mistral(raw_text)
     return _json_to_parsed_cv(data)
 
 
 def parse_file_with_mistral(file_path: str) -> ParsedCV:
+    """Extract text from file then parse with Mistral."""
     sys.path.insert(0, str(Path(__file__).parent))
     from extractor import extract_text
 

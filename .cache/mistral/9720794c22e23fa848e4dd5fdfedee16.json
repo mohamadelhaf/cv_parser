@@ -1,0 +1,304 @@
+{
+  "name": "KBJ",
+  "title": "Développeur FULL-STACK Expert Front-End",
+  "language": "Français",
+  "years_experience": "8 ans",
+  "profile": "Développeur Full-Stack expert en Front-End avec 8 ans d'expérience, spécialisé en Angular (versions 6 à 20), Java/Spring Boot et DevOps. Expertise en architecture moderne (Micro-Frontends, CQRS, Event-Driven), performance web (Lighthouse, Core Web Vitals), sécurité applicative (RBAC, OWASP) et industrialisation (CI/CD, Kubernetes). Maîtrise des bonnes pratiques (Clean Code, SOLID, TDD) et des outils de monitoring (Prometheus, Grafana). Expérience en leadership technique, mentoring d'équipes et coordination Agile.",
+  "savoir_faire": [
+    "Expertise Angular (6→20) sur SPA & Micro-Frontends avec architecture moderne, RxJS, Signals et Redux",
+    "Conception d’applications scalables avec routing avancé (Auth Guards, Lazy Loading), composants réutilisables et librairies internes",
+    "Culture performance web basée sur Lighthouse, Google Analytics et Core Web Vitals avec optimisation continue",
+    "Expertise UI/UX pixel-perfect avec Figma, Tailwind CSS, Prime NG et design systems custom",
+    "Sécurité applicative avancée avec RBAC, gestion des accès et protection des routes",
+    "Industrialisation & mise en production avec CI/CD, déploiements optimisés et monitoring post-release",
+    "Expertise Java 17 & Spring Boot (Spring Data JPA, Security, AOP) pour APIs REST et microservices scalables",
+    "Modernisation Back-End d’applications complexes, réduction de la dette technique et amélioration continue",
+    "Maîtrise de Clean Code, SOLID et TDD pour un code robuste et maintenable",
+    "Tests unitaires, d’intégration (JUnit 5, Mockito) et E2E (Cypress) avec SonarQube pour la qualité logicielle",
+    "Maîtrise de Docker, pipelines CI/CD et monitoring (Grafana, Prometheus) pour des déploiements fiables",
+    "Expérience en Agile Scrum, coordination avec PO/UX et mentoring d’équipes pour un delivery efficace"
+  ],
+  "skills": [
+    {
+      "category": "Langages",
+      "details": "Java 11, 17, TypeScript, JavaScript, SQL"
+    },
+    {
+      "category": "Développement Frontend",
+      "details": "Angular 6,9,13,15,16,19,20, Angular Material, Prime NG, RxJS, Signals, Redux, HTML5, CSS3, Tailwind CSS, SCSS, Jasmine, Karma, Cypress"
+    },
+    {
+      "category": "Développement Backend",
+      "details": "Spring Boot, Spring Data JPA, Spring Security, Spring AOP, Spring Batch, Spring Web Services, REST API, Axon, Camunda, Hibernate, Redis, PostgreSQL, MongoDB, MySQL"
+    },
+    {
+      "category": "CI/CD, DevOps",
+      "details": "Git, GitLab CI/CD, Docker, Docker Compose, Argo CD, Grafana, Prometheus, YAML scripting, gestion des secrets, Kubernetes"
+    },
+    {
+      "category": "Outils développement",
+      "details": "IntelliJ, VS Code, Eclipse, Visual Studio"
+    },
+    {
+      "category": "Outils de test et assurance de qualité",
+      "details": "JUnit 5, Mockito, TDD, BDD, Jasmine/Karma, Postman, Swagger, SonarQube, SonarLint, OWASP Dependency-Check"
+    },
+    {
+      "category": "Base de données",
+      "details": "PostgreSQL, MongoDB, MySQL, Redis, Oracle"
+    },
+    {
+      "category": "Systèmes d’exploitation",
+      "details": "Windows, Linux, macOS"
+    },
+    {
+      "category": "Sécurité",
+      "details": "Spring Security, JWT, validation d’entrée, CORS, RBAC"
+    },
+    {
+      "category": "Documentation",
+      "details": "Confluence, Jira, Azure DevOps"
+    },
+    {
+      "category": "Gestion de dépendances",
+      "details": "Maven, Gradle"
+    }
+  ],
+  "languages": [
+    {
+      "language": "Anglais",
+      "level": "Courant"
+    }
+  ],
+  "education": [
+    {
+      "degree": "Diplôme d’ingénieur en génie logiciel",
+      "institution": "Ecole Supérieure Privée d’Ingénierie et de Technologie Tunis (ESPRIT/ESTI)",
+      "year": "2018",
+      "type": "degree"
+    },
+    {
+      "degree": "Licence en Informatique de Gestion",
+      "institution": "ISG Tunis",
+      "year": "2014",
+      "type": "degree"
+    },
+    {
+      "degree": "Baccalauréat Sciences Expérimentales",
+      "institution": "",
+      "year": "2012",
+      "type": "degree"
+    }
+  ],
+  "experiences": [
+    {
+      "company": "Devoteam",
+      "role": "Développeur Senior Front-End Angular",
+      "dates": "Octobre 2023 – Avril 2026",
+      "context": "Tourism X est une plateforme IA centralisée pour le Ministère du Tourisme d’Arabie Saoudite, regroupant plusieurs outils intelligents (génération de logos, planification de voyages, outils SEO, etc.) via un portail unique. Objectif : fournir une expérience unifiée, performante et modulaire pour les services IA du ministère.",
+      "tasks": [
+        "Conception et mise en place de l’architecture front-end avec définition des standards techniques et découpage modulaire orienté domaine",
+        "Mise en œuvre d’une architecture Micro Front-End basée sur Webpack Module Federation avec isolation des modules et scalabilité",
+        "Développement de modules métiers (portails administratifs, dashboards, workflows et services IA)",
+        "Développement de features fonctionnelles complexes : authentification, gestion de session, navigation, recherche avancée et gestion de contenu",
+        "Développement des interfaces utilisateur avec Angular 15+ et services réutilisables",
+        "Intégration des APIs backend et services LLM (FastAPI) via Http Client Angular",
+        "Implémentation de streaming IA temps réel (chatbot / LLM streaming) avec gestion progressive des réponses utilisateur",
+        "Gestion des flux asynchrones avec RxJS (Observables, Subject, Behavior Subject) pour les interactions complexes",
+        "Utilisation de Signals Angular pour optimiser la gestion d’état et la synchronisation UI en temps réel",
+        "Mise en place de HTTP Interceptors pour la gestion des tokens, erreurs API et centralisation des appels",
+        "Implémentation de Route Guards (Auth Guard, Role Guard) pour sécurisation des parcours utilisateurs",
+        "Développement de composants UI avancés : dashboards dynamiques, visualisation de données avec Plotly, rendu Markdown, export PDF/Excel/PowerPoint",
+        "Intégration de services IA : chatbot intelligent, SEO tools, tour planner, logo generator via APIs LLM",
+        "Développement d’animations avancées avec GSAP et amélioration de l’expérience utilisateur",
+        "Optimisation de la gestion d’état avec Signals, RxJS et services Angular state-driven architecture",
+        "Optimisation des performances via lazy loading, On Push change detection, réduction des re-renders et découpage modulaire",
+        "Amélioration du time-to-interactive (TTI) via AOT compilation, tree-shaking et architecture Micro Front-End",
+        "Implémentation de l’authentification via MSAL Azure Active Directory",
+        "Gestion des sessions utilisateurs (JWT, refresh token, expiration, stockage sécurisé)",
+        "Mise en place du contrôle d’accès basé sur les rôles (RBAC) avec Auth Guards Angular",
+        "Sécurisation des routes et APIs selon les bonnes pratiques OWASP",
+        "Dockerisation des applications front-end pour standardisation des environnements",
+        "Configuration de NGINX pour routing, serving des assets et optimisation des performances",
+        "Mise en place de CI/CD avec Argo CD pour déploiement automatisé et synchronisation multi-environnements",
+        "Mise en place de tests unitaires avec Jasmine / Karma pour composants Angular critiques",
+        "Implémentation de tests end-to-end (Cypress) pour validation des parcours utilisateurs complets",
+        "Automatisation des tests dans les pipelines CI/CD pour garantir la non-régression",
+        "Instrumentation des interfaces pour collecte de KPIs front-end (navigation, latence, usage composants)",
+        "Suivi des performances via Prometheus et Grafana",
+        "Analyse des logs applicatifs via Splunk pour détection des anomalies",
+        "Migration progressive de Angular 15 → Angular 20 avec refactoring des patterns existants",
+        "Adoption des Standalone Components et suppression des Ng Modules legacy",
+        "Encadrement de l’équipe front-end et accompagnement sur les choix d’architecture",
+        "Définition des standards de développement et gestion de la dette technique",
+        "Animation des revues de code et mentoring des développeurs",
+        "Participation aux cérémonies Scrum (daily, sprint planning, review, rétrospective, PI planning)",
+        "Coordination avec Product Owner, UX/UI et équipes backend",
+        "Contribution aux ateliers techniques et validation des choix d’architecture"
+      ],
+      "tech_stack": [
+        "Angular 15,17,19,20",
+        "TypeScript",
+        "HTML5",
+        "CSS3",
+        "Tailwind CSS",
+        "RxJS",
+        "Signals",
+        "Angular Material",
+        "Prime NG",
+        "Vite",
+        "Webpack Federation",
+        "GSAP",
+        "MSAL (Microsoft Login)",
+        "Jest",
+        "Cypress",
+        "SonarQube",
+        "SonarLint",
+        "Postman",
+        "Docker",
+        "Docker Compose",
+        "Argo CD",
+        "NGINX",
+        "Prometheus",
+        "Grafana",
+        "Jira",
+        "Azure DevOps",
+        "Micro-frontend",
+        "Agile Scrum"
+      ]
+    },
+    {
+      "company": "Be-softilys",
+      "role": "Développeur Full-Stack – JAVA/ANGULAR",
+      "dates": "Février 2018 – Septembre 2023",
+      "context": "Projet 1 : Plateforme « Prévoyance » pour AXA France, visant à optimiser la gestion des sinistres liés au décès, faciliter l’évaluation des prestations et l’indemnisation des bénéficiaires.",
+      "tasks": [
+        "Recueil des besoins métier pour définir les flux de gestion des sinistres",
+        "Conception de l’architecture basée sur CQRS et microservices avec orchestration par événements via Axon et Camunda",
+        "Développement des microservices en Java 17 / Spring Boot (gestion des sinistres, calcul des prestations, indemnisation des bénéficiaires)",
+        "Orchestration par événements avec Axon Framework et gestion des workflows via Camunda",
+        "Implémentation des API REST sécurisées pour la communication entre microservices et avec le front-end",
+        "Gestion des données via PostgreSQL avec optimisation des requêtes pour les traitements critiques",
+        "Mise en place de la sécurité back-end : authentification, autorisation, gestion des CORS et validation des entrées",
+        "Développement de tests unitaires et d’intégration avec JUnit 5 et Mockito",
+        "Monitoring des performances et suivi des métriques critiques pour les microservices",
+        "Conception et intégration d’un micro-frontend SPA Angular pour la gestion des sinistres et le suivi des paiements",
+        "Développement des formulaires dynamiques avec validation (Template-driven et Reactive Forms) et tableaux de suivi interactifs",
+        "Communication avec les API REST via Angular Services et Http Client, gestion de l’état avec RxJS",
+        "Mise en place de notifications visuelles et retours utilisateurs pour chaque action",
+        "Sécurisation front-end via Keycloak avec gestion des rôles et permissions utilisateurs",
+        "Tests unitaires front-end avec Jasmine/Karma et suivi de la qualité du code via SonarQube",
+        "Application rigoureuse des principes SOLID et Clean Code sur le front-end",
+        "Suivi strict de la qualité du code back-end et front-end avec SonarQube",
+        "Tests automatisés back-end avec JUnit 5, Mockito et front-end avec Jasmine/Karma",
+        "Déploiement des microservices et micro-frontends sur Kubernetes",
+        "CI/CD avec Argo CD pour des déploiements fiables, automatisés et rollback facile",
+        "Gestion sécurisée des secrets et variables d’environnement",
+        "Monitoring front-end et back-end via Prometheus et Grafana"
+      ],
+      "tech_stack": [
+        "Java 17",
+        "Spring Boot",
+        "Spring Data JPA",
+        "Spring Security",
+        "Spring AOP",
+        "Spring Batch",
+        "Spring Web Services",
+        "REST API",
+        "Axon",
+        "Camunda",
+        "Hibernate",
+        "Redis",
+        "PostgreSQL",
+        "Angular",
+        "TypeScript",
+        "HTML5",
+        "CSS3",
+        "SCSS",
+        "Angular Material",
+        "Prime NG",
+        "RxJS",
+        "Jasmine",
+        "Karma",
+        "SonarQube",
+        "Docker",
+        "Kubernetes",
+        "Argo CD",
+        "Prometheus",
+        "Grafana",
+        "Keycloak",
+        "Micro-frontend",
+        "Microservices",
+        "Hexagonale",
+        "Event-Driven",
+        "CQRS",
+        "Agile Scrum"
+      ]
+    },
+    {
+      "company": "Be-softilys",
+      "role": "Développeur ANGULAR",
+      "dates": "Février 2018 – Novembre 2020",
+      "context": "Projet 2 : Plateforme en ligne de logement social pour Action Logement France, visant à digitaliser et centraliser les services liés au logement en France.",
+      "tasks": [
+        "Analyse des besoins métier et co-conception avec le Product Owner et les designers",
+        "Définition de l’architecture Front-End modulaire et évolutive, migration Angular 6→9 et modularisation des composants",
+        "Élaboration des parcours utilisateurs pour les interfaces des différents espaces (bailleur, client, administrateur)",
+        "Mise en place des règles fonctionnelles et sécurité côté Front-End : cycle de vie des sessions, gestion des accès et protection des routes critiques",
+        "Développement d’une interface utilisateur sécurisée et responsive pour la recherche, la consultation et la candidature aux logements sociaux",
+        "Garantir l’intégration et la consommation des APIs Back-End pour la gestion des espaces bailleur, client et administrateur",
+        "Offrir des composants modulaires et interactifs avec filtres avancés, tableaux dynamiques et formulaires réactifs",
+        "Assurer la performance, la sécurité et l’expérience utilisateur optimale avec suivi des métriques et feedbacks utilisateurs",
+        "Conception et évolution de l’architecture front-end modulaire et scalable",
+        "Mise en place d’une migration progressive Angular (6 → 9) avec refactoring et modernisation du code existant",
+        "Organisation de l’application en modules fonctionnels (bailleur, locataire, administrateur) avec séparation claire des responsabilités",
+        "Développement d’interfaces utilisateur responsive et dynamiques avec Angular, TypeScript, HTML5, CSS3/SCSS",
+        "Intégration de librairies UI (Angular Material, Prime NG) pour la construction d’interfaces modernes",
+        "Création de composants réutilisables : filtres avancés, tableaux dynamiques, formulaires complexes, dashboards",
+        "Implémentation des parcours utilisateurs : recherche logement, candidature, suivi de dossier, espace administrateur",
+        "Intégration et consommation des APIs REST pour la gestion des offres et candidatures",
+        "Utilisation de RxJS pour la gestion des flux asynchrones et la synchronisation des données",
+        "Optimisation des appels API via lazy loading, pagination et caching côté client",
+        "Intégration de Keycloak pour l’authentification et la gestion des rôles utilisateurs",
+        "Mise en place des Auth Guards et sécurisation des routes sensibles",
+        "Gestion des sessions et contrôle d’accès selon les profils (bailleur, locataire, administrateur)",
+        "Application des bonnes pratiques OWASP sur les interfaces web",
+        "Mise en place du Lazy Loading pour optimiser les temps de chargement",
+        "Optimisation des performances Angular (bundles, cycles de détection, rendu UI)",
+        "Mise en place de tests unitaires et d’intégration avec Jasmine et Karma",
+        "Suivi de la qualité du code via SonarQube et SonarLint",
+        "Application des principes Clean Code et SOLID",
+        "Revue de code et pair programming pour assurer la qualité du delivery",
+        "Collaboration avec les équipes backend, PO et UX/UI pour alignement fonctionnel et technique",
+        "Participation à la définition des flux de données et contrats d’API",
+        "Intégration fidèle des maquettes UX/UI et respect des standards design",
+        "Mise en place de pipelines CI/CD via GitLab pour automatiser build, tests et déploiement",
+        "Gestion sécurisée des variables d’environnement et secrets",
+        "Monitoring des performances via Prometheus et Grafana"
+      ],
+      "tech_stack": [
+        "Angular 6→9",
+        "RxJS",
+        "HTML5",
+        "CSS3",
+        "SCSS",
+        "Angular Material",
+        "Angular Forms",
+        "Http Client",
+        "Keycloak",
+        "Jasmine",
+        "Karma",
+        "SonarQube",
+        "Postman",
+        "Docker",
+        "GitLab Pipelines",
+        "Compose",
+        "YAML",
+        "Prometheus",
+        "Grafana",
+        "Monolithique",
+        "Agile Scrum"
+      ]
+    }
+  ]
+}
