@@ -1,0 +1,26 @@
+[flake8]
+max-line-length = 120
+exclude =
+    .venv,
+    __pycache__,
+    .git,
+    .cache
+
+# Ignore pre-existing style issues in the codebase.
+# New files (e.g. tests/) are held to the same standard but these rules
+# have too many existing violations to enforce all at once.
+extend-ignore =
+    # whitespace / blank-line cosmetics
+    W291,
+    W292,
+    W293,
+    E303,
+    # line-too-long violations in prose-heavy prompt strings
+    E501,
+    # opinionated formatting the project does not follow consistently
+    E221,
+    E701,
+    # f-strings without placeholders (used as regular strings in a few places)
+    F541,
+    # unused imports — adapter.py has broken legacy imports documented in tests
+    F401

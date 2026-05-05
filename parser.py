@@ -28,6 +28,7 @@ def _get_api_key() -> str:
 def _cache_key(text: str) -> str:
     return hashlib.md5(text.encode()).hexdigest()
 
+
 def _load_cache(key: str):
     f = CACHE_DIR / f"{key}.json"
     if f.exists():
@@ -36,6 +37,7 @@ def _load_cache(key: str):
         except Exception:
             return None
     return None
+
 
 def _save_cache(key: str, data: dict):
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -276,14 +278,14 @@ def _json_to_parsed_cv(data: dict) -> ParsedCV:
     languages = data.get("languages", [])
     if languages:
         section = Section(header="Langues", content_type="table")
-        for l in languages:
-            if isinstance(l, dict):
+        for lang in languages:
+            if isinstance(lang, dict):
                 section.table_rows.append(TableRow(
-                    left=l.get("language", ""),
-                    right=l.get("level", "")
+                    left=lang.get("language", ""),
+                    right=lang.get("level", "")
                 ))
-            elif isinstance(l, str):
-                section.table_rows.append(TableRow(left=l, right=""))
+            elif isinstance(lang, str):
+                section.table_rows.append(TableRow(left=lang, right=""))
         cv.sections.append(section)
 
     # ── Expériences Professionnelles ──

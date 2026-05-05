@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # cache pip downloads to speed up future runs
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      # stop on syntax errors and undefined names only (E9, F63, F7, F82)
+      - name: Flake8 critical errors
+        run: flake8 --select=E9,F63,F7,F82 --show-source --statistics .
+
+      # full style pass with relaxed line length
+      - name: Flake8 style
+        run: flake8 --max-line-length=120 --exclude=.venv,__pycache__ .
+
+  smoke:
+    name: Smoke tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      # install runtime deps without optional heavy packages that need a running service
+      - name: Install runtime dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install test runner
+        run: pip install pytest
+
+      - name: Run smoke tests
+        # API keys are not available in CI; tests must not call external services
+        run: pytest tests/ -v

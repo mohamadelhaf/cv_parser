@@ -1,0 +1,8 @@
+# runtime deps are still needed for imports
+-r requirements.txt
+
+# linting
+flake8>=7.0.0
+
+# test runner
+pytest>=8.0.0
