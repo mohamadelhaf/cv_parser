@@ -1,9 +1,37 @@
-__pycache__
+# Python cache
+__pycache__/
 *.pyc
-.git
+*.pyo
+
+# Version control
+.git/
 .gitignore
-README.md
-*.docx
-*.pdf
-.env
+
+# Development only
 .venv/
+venv/
+.github/
+tests/
+requirements-dev.txt
+.flake8
+.devcontainer/
+
+# Environment (secrets)
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# API cache
+.cache/
+
+# Exclude all docx/pdf except the bundled template
+*.docx
+!INTM_DDC_Mohamad_ELHAF - Template 2 (002).docx
+*.pdf
+
+# Unused app variant and CLI-only modules
+app2.py
+adapter.py
+main.py
