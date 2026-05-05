@@ -12,6 +12,10 @@ COPY extractor.py parser.py parser_v2.py generator.py matcher.py tailor.py app.p
 # Copy the default INTM DDC template bundled with the app
 COPY "INTM_DDC_Mohamad_ELHAF - Template 2 (002).docx" ./
 
+# Run as non-root for container security
+RUN useradd -m -u 1000 appuser
+USER appuser
+
 ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 EXPOSE 8501
 
