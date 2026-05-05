@@ -9,7 +9,7 @@ load_dotenv()
 
 st.set_page_config(page_title="DDC Lab", page_icon="📄", layout="wide")
 
-DEFAULT_TEMPLATE = os.path.join(os.path.dirname(__file__), "INTM_DDC_Mohamad_ELHAF - Template 2 (002).docx")
+DEFAULT_TEMPLATE = os.path.join(os.path.dirname(__file__), "default_template.docx")
 
 
 def is_intm_format(file_bytes: bytes) -> bool:

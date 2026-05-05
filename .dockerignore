@@ -28,7 +28,7 @@ Thumbs.db
 
 # Exclude all docx/pdf except the bundled template
 *.docx
-!INTM_DDC_Mohamad_ELHAF - Template 2 (002).docx
+!default_template.docx
 *.pdf
 
 # Unused app variant and CLI-only modules
