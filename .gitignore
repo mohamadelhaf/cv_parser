@@ -22,6 +22,9 @@ env/
 .DS_Store
 Thumbs.db
 
+# API response cache
+.cache/
+
 # Test outputs
 *.docx
 *.pdf
