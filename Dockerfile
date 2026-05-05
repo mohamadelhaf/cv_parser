@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY extractor.py parser.py parser_v2.py generator.py matcher.py tailor.py app.py ./
 
 # Copy the default INTM DDC template bundled with the app
-COPY "INTM_DDC_Mohamad_ELHAF - Template 2 (002).docx" ./
+COPY ["INTM_DDC_Mohamad_ELHAF - Template 2 (002).docx", "./"]
 
 # Run as non-root for container security
 RUN useradd -m -u 1000 appuser
